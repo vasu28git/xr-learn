@@ -41,10 +41,15 @@ export default function ModulePage() {
   const [showWorkspace, setShowWorkspace] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
   const [isMastered, setIsMastered] = useState(false)
+  const [isWeak, setIsWeak] = useState(false)
+  const [theorySections, setTheorySections] = useState(null) // null until resolved
+  const [theoryLoading, setTheoryLoading] = useState(false)
+  const [theoryIsGenerated, setTheoryIsGenerated] = useState(false)
 
   useEffect(() => {
-    if (!user) return
-    async function checkProgress() {
+    if (!user || !moduleConfig) return
+
+    async function checkProgressAndTheory() {
       const { data } = await supabase
         .from('module_progress')
         .select('completed')
@@ -57,12 +62,58 @@ export default function ModulePage() {
       }
 
       const diagnostic = await fetchDiagnosticResults(user.id)
-      if (diagnostic[moduleId] === true) {
-        setIsMastered(true)
+      const mastered = diagnostic[moduleId] === true
+      const weak = diagnostic[moduleId] === false
+
+      setIsMastered(mastered)
+      setIsWeak(weak)
+
+      // Default to the module's own static theory.
+      let sections = moduleConfig.theory.sections
+      let generated = false
+
+      // Only attempt LLM generation for modules confirmed weak by diagnostic.
+      // Modules 11 (capstone) and mastered modules always use static theory.
+      if (weak && moduleId !== 11) {
+        setTheoryLoading(true)
+        try {
+          const res = await fetch(`${import.meta.env.VITE_API_URL}/api/generate-theory`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              moduleId,
+              moduleTitle: moduleConfig.title,
+              // No dedicated `topic` field exists on moduleConfig yet — using
+              // title as a stand-in for the retrieval query. Flag: a more
+              // specific topic string here would likely improve retrieval.
+              topic: moduleConfig.title,
+            }),
+          })
+
+          if (res.ok) {
+            const { theory } = await res.json()
+            if (theory?.sections?.length > 0) {
+              sections = theory.sections
+              generated = true
+            }
+            // theory === null means generation/validation failed server-side;
+            // falls back to static sections already set above.
+          } else {
+            console.error('generate-theory request failed:', res.status)
+          }
+        } catch (err) {
+          console.error('generate-theory request threw:', err)
+        } finally {
+          setTheoryLoading(false)
+        }
       }
+
+      setTheorySections(sections)
+      setTheoryIsGenerated(generated)
     }
-    checkProgress()
-  }, [user, moduleId])
+
+    checkProgressAndTheory()
+  }, [user, moduleId, moduleConfig])
 
   if (!moduleConfig) {
     return (
@@ -93,7 +144,20 @@ export default function ModulePage() {
 
       {!showWorkspace && (
         <>
-          <TheorySection sections={moduleConfig.theory.sections} />
+          {theoryIsGenerated && (
+            <div className="theory-generated-badge">
+              ✨ Personalized explanation based on your diagnostic
+            </div>
+          )}
+
+          {theoryLoading ? (
+            <div className="loading-screen" style={{ minHeight: 200 }}>
+              <div className="loading-spinner" />
+              <p className="loading-text">Personalizing this module for you...</p>
+            </div>
+          ) : (
+            <TheorySection sections={theorySections ?? moduleConfig.theory.sections} />
+          )}
 
           <div className="start-handson-container">
             <p>Ready to apply what you've learned?</p>
@@ -116,6 +180,8 @@ export default function ModulePage() {
             </div>
           }
         >
+          {/* handsOn is always moduleConfig's own static object — untouched,
+              never generated or altered, regardless of theory source. */}
           <Workspace
             moduleId={moduleId}
             moduleConfig={moduleConfig}

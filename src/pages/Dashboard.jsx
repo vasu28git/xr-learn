@@ -17,17 +17,8 @@ import { module10 } from '../config/modules/module10'
 import { module11 } from '../config/modules/module11'
 
 const allModules = [
-  module1,
-  module2,
-  module3,
-  module4,
-  module5,
-  module6,
-  module7,
-  module8,
-  module9,
-  module10,
-  module11,
+  module1, module2, module3, module4, module5, module6,
+  module7, module8, module9, module10, module11,
 ]
 
 export default function Dashboard() {
@@ -60,8 +51,15 @@ export default function Dashboard() {
     fetchProgress()
   }, [user])
 
+  // Only show weak modules (needing the LLM-generated learning module + mapped
+  // hands-on) plus the Capstone, which always appears (locked until weak
+  // modules are done). Mastered modules are hidden entirely from the dashboard.
+  const visibleModules = allModules.filter(
+    (mod) => mod.id === 11 || diagnosticResults[mod.id] !== true
+  )
+
   const completedCount = getCompletedCount(progress, diagnosticResults)
-  const totalModules = allModules.length
+  const totalModules = visibleModules.length
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Student'
 
   const handleLogout = async () => {
@@ -102,7 +100,7 @@ export default function Dashboard() {
         </div>
 
         <div className="dashboard-grid">
-          {allModules.map((mod) => {
+          {visibleModules.map((mod) => {
             const status = getModuleStatus(progress, mod.id, diagnosticResults)
             return (
               <ModuleCard
