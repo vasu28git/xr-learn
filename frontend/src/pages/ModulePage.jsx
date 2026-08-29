@@ -1,0 +1,71 @@
+import { useEffect, useState, lazy, Suspense } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useAuth } from '../hooks/useAuth'
+import { api } from '../lib/api'
+import { module1 } from '../config/modules/module1'
+import { module2 } from '../config/modules/module2'
+import { module3 } from '../config/modules/module3'
+import { module4 } from '../config/modules/module4'
+import { module5 } from '../config/modules/module5'
+import { module6 } from '../config/modules/module6'
+
+const Workspace = lazy(() => import('../components/workspace/Workspace'))
+
+const modules = { 1: module1, 2: module2, 3: module3, 4: module4, 5: module5, 6: module6 }
+
+export default function ModulePage() {
+  const { id } = useParams()
+  const moduleId = Number(id)
+  const moduleConfig = modules[moduleId]
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const [isCompleted, setIsCompleted] = useState(false)
+
+  useEffect(() => {
+    if (!user) return
+    async function checkProgress() {
+      try {
+        const data = await api.progress.get(moduleId)
+        if (data?.completed) {
+          setIsCompleted(true)
+        }
+      } catch (err) {
+        console.error('Error checking progress:', err)
+      }
+    }
+    checkProgress()
+  }, [user, moduleId])
+
+  if (!moduleConfig) {
+    return (
+      <div className="bg-surface-container-lowest text-on-surface h-screen flex flex-col items-center justify-center gap-4">
+        <p className="font-headline-sm text-sm text-on-surface-variant">Module not found</p>
+        <button 
+          className="bg-primary hover:bg-primary-fixed text-on-primary font-bold text-xs py-2 px-4 rounded transition-colors cursor-pointer" 
+          onClick={() => navigate('/dashboard')}
+        >
+          Back to Dashboard
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <Suspense
+      fallback={
+        <div className="bg-surface-container-lowest text-on-surface h-screen flex flex-col items-center justify-center gap-4">
+          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+          <p className="font-code-sm text-[10px] text-on-surface-variant uppercase tracking-wider">Loading interactive workspace...</p>
+        </div>
+      }
+    >
+      <Workspace
+        moduleId={moduleId}
+        moduleConfig={moduleConfig}
+        user={user}
+        onComplete={() => setIsCompleted(true)}
+        onBack={() => navigate('/dashboard')}
+      />
+    </Suspense>
+  )
+}

@@ -1,29 +1,16 @@
 {
-  "name": "xr-learning",
+  "name": "xr-learning-workspace",
+  "version": "1.0.0",
   "private": true,
-  "version": "0.0.0",
-  "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "oxlint",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@monaco-editor/react": "^4.7.0",
-    "@react-three/drei": "^10.7.8",
-    "@react-three/fiber": "^9.7.0",
-    "@supabase/supabase-js": "^2.112.4",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.2",
-    "three": "^0.185.1"
+    "install:all": "npm install && npm run install:frontend && npm run install:backend",
+    "install:frontend": "npm install --prefix frontend",
+    "install:backend": "npm install --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev": "npx concurrently -n \"backend,frontend\" -c \"blue,green\" \"npm run dev:backend\" \"npm run dev:frontend\""
   },
   "devDependencies": {
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
-    "@vitejs/plugin-react": "^6.1.0",
-    "oxlint": "^1.79.0",
-    "vite": "^8.2.2"
+    "concurrently": "^8.0.1"
   }
 }
