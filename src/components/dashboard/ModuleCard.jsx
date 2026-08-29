@@ -1,11 +1,13 @@
 export default function ModuleCard({ module, status, onClick }) {
   const statusLabels = {
+    mastered: 'Mastered',
     completed: 'Completed',
     available: 'Available',
     locked: 'Locked',
   }
 
   const statusIcons = {
+    mastered: '🏆',
     completed: '✅',
     available: '▶️',
     locked: '🔒',

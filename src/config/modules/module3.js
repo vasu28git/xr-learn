@@ -1,28 +1,29 @@
 export const module3 = {
   id: 3,
-  title: 'Scene Hierarchy',
-  description: 'Learn how parent-child relationships work in 3D scenes. Moving a parent moves all its children — the foundation of complex XR scenes.',
+  title: 'Anchors & Scene Hierarchy',
+  description: 'Learn how XR scenes organize objects into parent-child relationships and how anchored objects move together as a group.',
   theory: {
     sections: [
-      { type: 'heading', content: 'What Is a Scene Graph?' },
-      { type: 'text', content: 'A scene graph is a tree structure that organizes every object in a 3D scene. Each object can have a parent and multiple children. When you move, rotate, or scale a parent object, all of its children are affected too — they move together as a group.' },
-      { type: 'highlight', content: 'Think of a scene graph like a family tree for 3D objects. A car body is the parent. Its wheels, doors, and windows are children. When the car moves forward, everything moves with it.' },
-      { type: 'heading', content: 'Parent-Child Relationships' },
+      { type: 'heading', content: 'What Is an Anchor?' },
+      { type: 'text', content: 'An anchor is a fixed point in space that makes an object feel grounded. In AR, an anchor might be a wall, a floor plane, or a tracked marker. In a 3D scene, it behaves like a stable reference point.' },
+      { type: 'highlight', content: 'Anchors are essential because they prevent digital content from drifting or floating unpredictably. Without a frame of reference, the virtual scene loses meaning.' },
+      { type: 'heading', content: 'Scene Graphs and Parents' },
       { type: 'list', items: [
-        'A child\'s position is relative to its parent (local space), not the world.',
-        'Moving a parent moves all children. Moving a child only moves that child.',
-        'Rotation and scale also propagate from parent to children.',
-        'An object can only have one parent, but a parent can have many children.'
+        'A parent is a container or anchor that owns one or more child objects.',
+        'A child inherits the parent’s movement, rotation, and scale.',
+        'Moving the parent updates all children, which keeps spatial relationships consistent.',
+        'This is how complex XR scenes stay organized and easier to manipulate.'
       ]},
-      { type: 'heading', content: 'Why Does This Matter in XR?' },
-      { type: 'text', content: 'In XR, scene hierarchy is everywhere. A virtual room is a parent of its furniture. A hand controller is a parent of the object it\'s holding. A solar system has the sun as the root, planets as children, and moons as grandchildren.' },
-      { type: 'highlight', content: 'In the exercise below, you\'ll make two boxes children of a table. Then, when you move the table, the boxes will move with it — proving the parent-child relationship works.' },
+      { type: 'text', content: 'Think of a chair in a room. The room is the world, the chair is one object, and any decorations attached to it are children. If the chair moves, the decorations move with it.' },
+      { type: 'heading', content: 'Why it matters in XR' },
+      { type: 'text', content: 'XR systems often need to attach virtual objects to a surface or a tracked device. Once anchored, those objects can be updated as the user moves through the scene, preserving the illusion that the scene is consistent and physically grounded.' },
+      { type: 'highlight', content: 'In this exercise, you will make the boxes children of the table so they stay attached to it. Then you’ll move the table and watch the relationship update in real time.' },
     ]
   },
   handsOn: {
-    task: 'Make box1 and box2 children of the table so that when you move the table, the boxes move with it.',
+    task: 'Attach both boxes to the table so they move with it when the table is repositioned.',
     starterCode: `// Make box1 and box2 children of the table
-// Then move the table and see what happens
+// This creates a parent-child relationship.
 scene.setParent(box1, table)
 scene.setParent(box2, table)
 table.position.x = 0`,
@@ -39,6 +40,6 @@ table.position.x = 0`,
     },
     allowedAPI: ['scene.setParent', 'table.position.x', 'table.position.y', 'table.position.z'],
     targetState: { box1Parent: 'table', box2Parent: 'table', tableMoved: true },
-    completionMessage: 'The boxes now move with the table. You\'ve just used scene hierarchy — one of the most important concepts in 3D and XR development.'
+    completionMessage: 'The boxes now stay attached to the table. You’ve used a real scene hierarchy pattern, which is how XR systems organize complex content into stable, moving groups.'
   }
 }

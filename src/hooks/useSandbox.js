@@ -5,8 +5,25 @@ import { module3 } from '../config/modules/module3'
 import { module4 } from '../config/modules/module4'
 import { module5 } from '../config/modules/module5'
 import { module6 } from '../config/modules/module6'
+import { module7 } from '../config/modules/module7'
+import { module8 } from '../config/modules/module8'
+import { module9 } from '../config/modules/module9'
+import { module10 } from '../config/modules/module10'
+import { module11 } from '../config/modules/module11'
 
-const modules = { 1: module1, 2: module2, 3: module3, 4: module4, 5: module5, 6: module6 }
+const modules = {
+  1: module1,
+  2: module2,
+  3: module3,
+  4: module4,
+  5: module5,
+  6: module6,
+  7: module7,
+  8: module8,
+  9: module9,
+  10: module10,
+  11: module11,
+}
 
 function getInitialState(moduleId) {
   switch (moduleId) {

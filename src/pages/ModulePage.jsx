@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabase'
+import { fetchDiagnosticResults } from '../utils/progress'
 import TheorySection from '../components/theory/TheorySection'
 import { module1 } from '../config/modules/module1'
 import { module2 } from '../config/modules/module2'
@@ -9,10 +10,27 @@ import { module3 } from '../config/modules/module3'
 import { module4 } from '../config/modules/module4'
 import { module5 } from '../config/modules/module5'
 import { module6 } from '../config/modules/module6'
+import { module7 } from '../config/modules/module7'
+import { module8 } from '../config/modules/module8'
+import { module9 } from '../config/modules/module9'
+import { module10 } from '../config/modules/module10'
+import { module11 } from '../config/modules/module11'
 
 const Workspace = lazy(() => import('../components/workspace/Workspace'))
 
-const modules = { 1: module1, 2: module2, 3: module3, 4: module4, 5: module5, 6: module6 }
+const modules = {
+  1: module1,
+  2: module2,
+  3: module3,
+  4: module4,
+  5: module5,
+  6: module6,
+  7: module7,
+  8: module8,
+  9: module9,
+  10: module10,
+  11: module11,
+}
 
 export default function ModulePage() {
   const { id } = useParams()
@@ -22,6 +40,7 @@ export default function ModulePage() {
   const navigate = useNavigate()
   const [showWorkspace, setShowWorkspace] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
+  const [isMastered, setIsMastered] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -35,6 +54,11 @@ export default function ModulePage() {
 
       if (data?.completed) {
         setIsCompleted(true)
+      }
+
+      const diagnostic = await fetchDiagnosticResults(user.id)
+      if (diagnostic[moduleId] === true) {
+        setIsMastered(true)
       }
     }
     checkProgress()
@@ -63,7 +87,7 @@ export default function ModulePage() {
           </span>
         </div>
         <span className="module-page-progress">
-          {isCompleted ? '✅ Completed' : '📖 In Progress'}
+          {isMastered ? '🏆 Mastered' : isCompleted ? '✅ Completed' : '📖 In Progress'}
         </span>
       </header>
 
