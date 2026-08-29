@@ -7,8 +7,13 @@ export default function DiagnosticGate({ children }) {
   const { user, loading } = useAuth()
   const [hasDiagnostic, setHasDiagnostic] = useState(null)
   const [checkLoading, setCheckLoading] = useState(true)
+  const [checkError, setCheckError] = useState(null)
 
   useEffect(() => {
+    setCheckLoading(true)
+    setCheckError(null)
+    setHasDiagnostic(null)
+
     const checkDiagnosticResults = async () => {
       if (!user) {
         setCheckLoading(false)
@@ -24,15 +29,13 @@ export default function DiagnosticGate({ children }) {
 
         if (error) {
           console.error('Error checking diagnostic results:', error)
-          // If there's an error, assume user hasn't done diagnostic (safer default)
-          setHasDiagnostic(false)
+          setCheckError(error.message)
         } else {
-          // If any rows exist, user has completed diagnostic
           setHasDiagnostic(data && data.length > 0)
         }
       } catch (err) {
         console.error('Exception checking diagnostic results:', err)
-        setHasDiagnostic(false)
+        setCheckError(err.message)
       } finally {
         setCheckLoading(false)
       }
@@ -66,8 +69,17 @@ export default function DiagnosticGate({ children }) {
     )
   }
 
+  if (checkError) {
+    return (
+      <div className="loading-screen">
+        <p className="loading-text">Unable to verify your diagnostic results.</p>
+        <p className="diagnostic-error">{checkError}</p>
+      </div>
+    )
+  }
+
   // User hasn't completed diagnostic yet, redirect to diagnostic quiz
-  if (!hasDiagnostic) {
+  if (hasDiagnostic === false) {
     return <Navigate to="/diagnostic" replace />
   }
 
