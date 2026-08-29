@@ -75,5 +75,16 @@ export const api = {
         body: JSON.stringify(contextPacket),
       });
     }
+  },
+  diagnostic: {
+    async check() {
+      return fetchAPI('/diagnostic');
+    },
+    async submit(rows) {
+      return fetchAPI('/diagnostic', {
+        method: 'POST',
+        body: JSON.stringify({ rows }),
+      });
+    }
   }
 };

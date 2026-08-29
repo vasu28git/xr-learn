@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "XR command",
+  "oneOf": [
+    { "type": "object", "required": ["type", "object", "x", "y", "z"], "properties": { "type": { "const": "ROTATE" }, "object": { "const": "currentObject" }, "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" } } },
+    { "type": "object", "required": ["type", "object", "x", "y", "z"], "properties": { "type": { "enum": ["SET_POSITION", "SET_SCALE", "SET_ROTATION"] }, "object": { "const": "currentObject" }, "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" } } },
+    { "type": "object", "required": ["type", "object", "x", "y", "z", "scaleX", "scaleY", "scaleZ"], "properties": { "type": { "const": "CREATE_CUBE" }, "object": { "type": "string", "minLength": 1, "maxLength": 32 }, "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" }, "scaleX": { "type": "number" }, "scaleY": { "type": "number" }, "scaleZ": { "type": "number" } } }
+  ]
+}

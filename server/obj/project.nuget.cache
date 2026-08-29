@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "FXaQO0QB0Ok=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\admin\\Downloads\\mock projects\\mock3d\\server\\XrCodingLab.Server.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\admin\\.nuget\\packages\\microsoft.codeanalysis.analyzers\\3.3.4\\microsoft.codeanalysis.analyzers.3.3.4.nupkg.sha512",
+    "C:\\Users\\admin\\.nuget\\packages\\microsoft.codeanalysis.common\\4.10.0\\microsoft.codeanalysis.common.4.10.0.nupkg.sha512",
+    "C:\\Users\\admin\\.nuget\\packages\\microsoft.codeanalysis.csharp\\4.10.0\\microsoft.codeanalysis.csharp.4.10.0.nupkg.sha512"
+  ],
+  "logs": []
+}

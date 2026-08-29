@@ -181,13 +181,13 @@ app.put('/api/progress/:moduleId', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('module_progress')
-      .update({
+      .upsert({
+        student_id: req.user.id,
+        module_id: Number(moduleId),
         completed: completed ?? true,
         completed_at: new Date().toISOString(),
         attempts: attempts,
-      })
-      .eq('student_id', req.user.id)
-      .eq('module_id', Number(moduleId));
+      }, { onConflict: 'student_id,module_id' });
 
     if (error) {
       return res.status(400).json({ message: error.message });
@@ -199,6 +199,65 @@ app.put('/api/progress/:moduleId', requireAuth, async (req, res) => {
     res.status(500).json({ message: 'Failed to update progress.' });
   }
 });
+
+// --- DIAGNOSTIC QUIZ ROUTES ---
+
+// Check if user has completed diagnostic
+app.get('/api/diagnostic', requireAuth, async (req, res) => {
+  if (!supabase) {
+    return res.json({ hasDiagnostic: true });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('diagnostic_results')
+      .select('id')
+      .eq('student_id', req.user.id)
+      .limit(1);
+
+    if (error) {
+      return res.status(400).json({ message: error.message });
+    }
+
+    res.json({ hasDiagnostic: data && data.length > 0 });
+  } catch (err) {
+    console.error('Check diagnostic error:', err);
+    res.status(500).json({ message: 'Failed to check diagnostic status.' });
+  }
+});
+
+// Save diagnostic results
+app.post('/api/diagnostic', requireAuth, async (req, res) => {
+  if (!supabase) {
+    return res.json({ success: true });
+  }
+
+  try {
+    const { rows } = req.body;
+    if (!rows || !Array.isArray(rows)) {
+      return res.status(400).json({ message: 'Rows array is required.' });
+    }
+
+    const rowsWithStudent = rows.map(row => ({
+      ...row,
+      student_id: req.user.id
+    }));
+
+    const { data, error } = await supabase
+      .from('diagnostic_results')
+      .insert(rowsWithStudent);
+
+    if (error) {
+      return res.status(400).json({ message: error.message });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Save diagnostic error:', err);
+    res.status(500).json({ message: 'Failed to save diagnostic results.' });
+  }
+});
+
 
 // --- AI TUTOR SERVICE ROUTE (Ported from Deno Edge Function) ---
 app.post('/api/ai-tutor', requireAuth, async (req, res) => {

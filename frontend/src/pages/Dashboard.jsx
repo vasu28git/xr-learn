@@ -9,8 +9,13 @@ import { module3 } from '../config/modules/module3'
 import { module4 } from '../config/modules/module4'
 import { module5 } from '../config/modules/module5'
 import { module6 } from '../config/modules/module6'
+import { module7 } from '../config/modules/module7'
+import { module8 } from '../config/modules/module8'
+import { module9 } from '../config/modules/module9'
+import { module10 } from '../config/modules/module10'
+import { module11 } from '../config/modules/module11'
 
-const allModules = [module1, module2, module3, module4, module5, module6]
+const allModules = [module1, module2, module3, module4, module5, module6, module7, module8, module9, module10, module11]
 
 export default function Dashboard() {
   const { user, signOut } = useAuth()
@@ -51,7 +56,7 @@ export default function Dashboard() {
   }, [])
 
   const completedCount = getCompletedCount(progress)
-  const percentComplete = Math.round((completedCount / 6) * 100)
+  const percentComplete = Math.round((completedCount / allModules.length) * 100)
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Developer'
 
   const handleLogout = async () => {
@@ -190,7 +195,7 @@ export default function Dashboard() {
                   <p className="font-body-sm text-xs text-on-surface-variant max-w-md">Learn XR concepts through structured modules and interactive 3D simulations.</p>
                 </div>
                 <div className="font-code-md text-xs text-primary bg-primary/10 px-3 py-1 rounded border border-primary/20">
-                  {completedCount} / 6 Modules
+                  {completedCount} / {allModules.length} Modules
                 </div>
               </div>
               <div className="z-10">
@@ -341,7 +346,7 @@ export default function Dashboard() {
               <div className="space-y-4">
                 <div>
                   <p className="font-label-caps text-[9px] text-on-surface-variant uppercase tracking-wider mb-1">TOTAL RESOLVED</p>
-                  <p className="font-code-md text-2xl font-bold text-secondary">{completedCount} <span className="text-xs text-on-surface-variant">/ 6 modules</span></p>
+                  <p className="font-code-md text-2xl font-bold text-secondary">{completedCount} <span className="text-xs text-on-surface-variant">/ {allModules.length} modules</span></p>
                 </div>
                 <div className="p-3 bg-surface-container-lowest border border-outline-variant rounded-lg">
                   <p className="font-label-caps text-[9px] text-on-surface-variant uppercase tracking-wider mb-1.5">CURRENT TASK</p>
