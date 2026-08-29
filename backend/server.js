@@ -259,6 +259,41 @@ app.post('/api/diagnostic', requireAuth, async (req, res) => {
 });
 
 
+// --- XR C# PIPELINE EXECUTION PROXY ---
+app.post('/api/execute', async (req, res) => {
+  const { source } = req.body;
+  try {
+    const response = await fetch('http://localhost:5058/api/execute', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ source }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return res.status(response.status).json({
+        commands: [],
+        errors: [{ kind: 'runtime', message: `C# execution service error: ${errText}`, line: 1, column: 1 }],
+        astNodes: [],
+        syntaxNodeCount: 0,
+      });
+    }
+
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error('Failed to proxy C# execution:', err);
+    res.json({
+      commands: [],
+      errors: [{ kind: 'runtime', message: `Failed to reach C# execution server at http://localhost:5058: ${err.message}`, line: 1, column: 1 }],
+      astNodes: [],
+      syntaxNodeCount: 0,
+    });
+  }
+});
+
 // --- AI TUTOR SERVICE ROUTE (Ported from Deno Edge Function) ---
 app.post('/api/ai-tutor', requireAuth, async (req, res) => {
   const {

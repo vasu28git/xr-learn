@@ -5,43 +5,51 @@ import { module3 } from '../config/modules/module3'
 import { module4 } from '../config/modules/module4'
 import { module5 } from '../config/modules/module5'
 import { module6 } from '../config/modules/module6'
+import { api } from '../lib/api'
+import { executeXrCommands } from '../utils/xrCommandExecutor'
 
 const modules = { 1: module1, 2: module2, 3: module3, 4: module4, 5: module5, 6: module6 }
 
 function getInitialState(moduleId) {
+  let state = {}
   switch (moduleId) {
     case 1:
-      return {
+      state = {
         virtualClicked: false,
         anchoredClicked: false,
       }
+      break
     case 2:
-      return {
+      state = {
         box: {
           position: { x: 0, y: 0.5, z: 0 },
         },
       }
+      break
     case 3:
-      return {
+      state = {
         table: { position: { x: 0, y: 0.25, z: 0 }, moved: false },
         box1Parent: null,
         box2Parent: null,
       }
+      break
     case 4:
-      return {
+      state = {
         light: { intensity: 0.5 },
         material: { color: '#ffffff', roughness: 0.5, metalness: 0.0 },
       }
+      break
     case 5:
-      return {
+      state = {
         box: {
           color: '#4488ff',
           hasClickHandler: false,
           clickHandler: null,
         },
       }
+      break
     case 6:
-      return {
+      state = {
         box1: { position: { x: 0, y: 0.5, z: 0 }, color: '#4488ff' },
         box2: { position: { x: 2, y: 0.5, z: 0 }, color: '#ff8844' },
         sphere1: { position: { x: -2, y: 1, z: 2 }, color: '#44ff88' },
@@ -53,9 +61,11 @@ function getInitialState(moduleId) {
         parents: {},
         clickHandlers: {},
       }
+      break
     default:
-      return {}
+      state = {}
   }
+  return { ...state, hasRun: false }
 }
 
 function buildModuleAPI(moduleId, updateState, getState) {
@@ -333,104 +343,104 @@ function buildModuleAPI(moduleId, updateState, getState) {
   }
 }
 
+function preprocessCSharpCode(code, moduleId) {
+  // If the code already contains class definition, leave it as is
+  if (code.includes('class ') || code.includes('MonoBehaviour')) {
+    return code
+  }
+
+  let js = code
+
+  // Remove C# float suffix
+  js = js.replace(/(\d+\.?\d*)\s*f\b/gi, '$1')
+
+  // Convert transform.parent assignments
+  js = js.replace(/(\w+)\.transform\.parent\s*=\s*(\w+)\.transform/g, 'xr.SetParent("$1", "$2")')
+
+  // Convert scene.setParent calls
+  js = js.replace(/scene\.setParent\((\w+),\s*(\w+)\)/g, 'xr.SetParent("$1", "$2")')
+
+  // Convert transform.position assignments
+  js = js.replace(/(\w+)\.transform\.position\s*=\s*/g, 'xr.SetPosition("$1", ')
+
+  // Convert box.position.x/y/z assignments (Module 2)
+  if (Number(moduleId) === 2) {
+    let x = 0, y = 0.5, z = 0
+    const mx = /box\.position\.x\s*=\s*([^;\n]+)/.exec(js)
+    const my = /box\.position\.y\s*=\s*([^;\n]+)/.exec(js)
+    const mz = /box\.position\.z\s*=\s*([^;\n]+)/.exec(js)
+    if (mx) x = mx[1].trim()
+    if (my) y = my[1].trim()
+    if (mz) z = mz[1].trim()
+    js = `xr.SetPosition("box", new Vector3(${x}, ${y}, ${z}));`
+  }
+
+  // Convert table.position.x assignment (Module 3)
+  if (Number(moduleId) === 3) {
+    const mt = /table\.position\.x\s*=\s*([^;\n]+)/.exec(js)
+    const val = mt ? mt[1].trim() : 0
+    js = js.replace(/table\.position\.x\s*=\s*([^;\n]+)/g, '')
+    js += `\nxr.SetPosition("table", new Vector3(${val}, 0.25f, 0));`
+  }
+
+  // Convert property mappings for Light and Material
+  js = js.replace(/light\.intensity/g, 'Light.intensity')
+  js = js.replace(/material\.color/g, 'Material.color')
+  js = js.replace(/material\.roughness/g, 'Material.roughness')
+  js = js.replace(/material\.metalness/g, 'Material.metalness')
+
+  // Strip click handlers so they don't cause compile errors
+  js = js.replace(/(\w+)\.(onClick|OnClick)\([\s\S]*?\);?/gi, '')
+
+  // Wrap in class template
+  return `using UnityEngine;
+
+public class StudentScript : MonoBehaviour
+{
+    void Start()
+    {
+        ${js}
+    }
+}`
+}
+
 export function useSandbox(moduleId) {
   const id = Number(moduleId)
   const [sceneState, setSceneState] = useState(() => getInitialState(id))
   const [lastError, setLastError] = useState(null)
 
-  // Transpiler cache: skip re-parsing if code hasn't changed
-  const transpileCache = React.useRef(new Map())
-
-  // C# to JS transpiler
-  const transpileCSharpToJS = useCallback((csharp) => {
-    // Check cache first
-    if (transpileCache.current.has(csharp)) {
-      return transpileCache.current.get(csharp)
-    }
-
-    let js = csharp
-
-    // Remove C# float suffixes: 3.0f -> 3.0, 3f -> 3
-    js = js.replace(/(\d+\.?\d*)\s*f\b/gi, '$1')
-
-    // child.transform.parent = parent.transform;
-    js = js.replace(/(\w+)\.transform\.parent\s*=\s*(\w+)\.transform/g, 'scene.setParent($1, $2)')
-
-    // obj.transform.position = new Vector3(x, y, z);
-    js = js.replace(/(\w+)\.transform\.position\s*=\s*new\s+Vector3\s*\(([^)]+)\)/gi, (match, obj, args) => {
-      const coords = args.split(',').map(s => s.trim())
-      if (coords.length === 3) {
-        return `${obj}.position.x = ${coords[0]}; ${obj}.position.y = ${coords[1]}; ${obj}.position.z = ${coords[2]};`
-      }
-      return match
-    })
-
-    // obj.transform.position.x = value;
-    js = js.replace(/(\w+)\.transform\.position\.([xyz])\s*=\s*([^;\n]+)/gi, '$1.position.$2 = $3')
-
-    // obj.GetComponent<Renderer>().material.color = Color.xxx or hex;
-    js = js.replace(/(\w+)\.GetComponent<Renderer>\(\)\.material\.color\s*=\s*(Color\.\w+|["'][^"']+["'])/gi, (match, obj, val) => {
-      let hex = val
-      if (/color\.red/i.test(val)) hex = "'#ff4444'"
-      if (/color\.blue/i.test(val)) hex = "'#4488ff'"
-      if (/color\.green/i.test(val)) hex = "'#44ff88'"
-      if (/color\.white/i.test(val)) hex = "'#ffffff'"
-      return `${obj}.color = ${hex}`
-    })
-
-    // material.color = Color.xxx or hex;
-    js = js.replace(/material\.color\s*=\s*(Color\.\w+|["'][^"']+["'])/gi, (match, val) => {
-      let hex = val
-      if (/color\.red/i.test(val)) hex = "'#ff6644'"
-      if (/color\.blue/i.test(val)) hex = "'#4488ff'"
-      if (/color\.green/i.test(val)) hex = "'#44ff88'"
-      if (/color\.white/i.test(val)) hex = "'#ffffff'"
-      return `material.color = ${hex}`
-    })
-
-    // obj.OnClick(() => { ... })
-    js = js.replace(/(\w+)\.OnClick\(\(\)\s*=>\s*\{/gi, '$1.onClick(function() {')
-    // Close pattern: });  (already valid JS)
-
-    // Strip C# type keywords
-    js = js.replace(/\b(void|var|float|int|string|bool|public|private|protected)\b/g, 'let')
-
-    // Cache the result
-    transpileCache.current.set(csharp, js)
-    return js
-  }, [])
-
   const runCode = useCallback(
-    (code) => {
+    async (code) => {
       setLastError(null)
-
-      // Transpile C# to JS
-      const transpiledCode = transpileCSharpToJS(code)
-
-      const api = buildModuleAPI(id, setSceneState, () => sceneState)
-
       try {
-        const keys = Object.keys(api)
-        const values = Object.values(api)
+        const processedCode = preprocessCSharpCode(code, id)
+        const res = await api.execute.run(processedCode)
+        
+        if (res.errors && res.errors.length > 0) {
+          const firstErr = res.errors[0]
+          setLastError(`${firstErr.kind.toUpperCase()} ERROR: ${firstErr.message} (Line ${firstErr.line}, Col ${firstErr.column})`)
+          return
+        }
 
-        // Wrap execution with a timeout guard (200ms max)
-        let didTimeout = false
-        const timeoutId = setTimeout(() => {
-          didTimeout = true
-        }, 200)
+        if (res.commands) {
+          const commands = [...res.commands]
+          // Inject RegisterClick commands if user added Click handler registration
+          if (/box1\.(onClick|OnClick)/i.test(code)) commands.push({ Type: 'RegisterClick', Name: 'box1' })
+          if (/box2\.(onClick|OnClick)/i.test(code)) commands.push({ Type: 'RegisterClick', Name: 'box2' })
+          if (/box3\.(onClick|OnClick)/i.test(code)) commands.push({ Type: 'RegisterClick', Name: 'box3' })
+          if (/box\.(onClick|OnClick)/i.test(code)) commands.push({ Type: 'RegisterClick', Name: 'box' })
 
-        const fn = new Function(...keys, transpiledCode)
-        fn(...values)
-
-        clearTimeout(timeoutId)
-        if (didTimeout) {
-          setLastError('Code execution took too long (> 200ms). Check for infinite loops.')
+          setSceneState((prev) => {
+            const next = executeXrCommands(commands, prev, id)
+            next.hasRun = true
+            return next
+          })
         }
       } catch (error) {
-        setLastError(error.message)
+        setLastError(`Network Error: ${error.message}`)
       }
     },
-    [id, transpileCSharpToJS]
+    [id]
   )
 
   const handleSceneClick = useCallback(

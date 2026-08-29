@@ -1,275 +1,113 @@
-# XR Learning Platform — Complete Project Walkthrough
+# Integration Walkthrough: C# XR Pipeline & Three.js Command Execution
 
-## What We Built
-
-A **browser-based XR learning platform** where students learn Augmented & Virtual Reality concepts through 6 structured modules. Each module has theory + a hands-on 3D workspace with a live code editor and AI tutor.
-
-**No headset required. No installation. Everything runs in the browser.**
+We have integrated the newly added C# Roslyn-based XR execution pipeline with the existing frontend React application and Node/Express backend. All 7 tests in `XrCodingLab.Tests` compile and pass.
 
 ---
 
-## Tech Stack
+## 1. Modified & Created Files
 
-| Technology | Purpose |
-|---|---|
-| **React + Vite** | Frontend framework & build tool |
-| **React Three Fiber + Three.js** | 3D scenes in the browser |
-| **@react-three/drei** | 3D helpers (OrbitControls, Html labels) |
-| **Monaco Editor** | In-browser VS Code-style code editor |
-| **Supabase Auth** | Login / Signup |
-| **Supabase Database** | Student progress storage |
-| **Supabase Edge Functions** | AI tutor proxy (keeps API key secret) |
-| **React Router DOM** | Page navigation |
+### Modified Files:
+*   [**`backend/server.js`**](file:///c:/Users/admin/OneDrive/Desktop/xr-learn/backend/server.js): Added `/api/execute` endpoint proxy that forwards student source code to the C# execution server at `http://localhost:5058/api/execute`.
+*   [**`server/Interpreting/UnityTransformInterpreter.cs`**](file:///c:/Users/admin/OneDrive/Desktop/xr-learn/server/Interpreting/UnityTransformInterpreter.cs): Expanded compilation stubs (`Time`, `Light`, `Material`, `Teleporter`, `xr.SetParent`), added AST whitelisting rules, and implemented C# statement parsing for emergency alarms, teleport direction, and click event registration.
+*   [**`frontend/src/lib/api.js`**](file:///c:/Users/admin/OneDrive/Desktop/xr-learn/frontend/src/lib/api.js): Exposed `api.execute.run(source)` to make POST requests to the Express backend proxy.
+*   [**`frontend/src/hooks/useSandbox.js`**](file:///c:/Users/admin/OneDrive/Desktop/xr-learn/frontend/src/hooks/useSandbox.js): Replaced the client-side JavaScript regex-transpiler and `eval`-based local runner with a preprocessor that wraps statement-level C# scripts into standard Unity class templates and queries the C# execution service via backend API proxy.
+*   [**`frontend/src/components/workspace/SceneObjects.jsx`**](file:///c:/Users/admin/OneDrive/Desktop/xr-learn/frontend/src/components/workspace/SceneObjects.jsx): Added a `DynamicSceneObjects` renderer to dynamically instantiate and transform `box`, `sphere`, and `cylinder` meshes created via `xr` commands. Added checks for `hasRun` state (empty scene initially) and `hasDynamicObjects` (suppresses default module objects when rendering custom C# models).
+*   [**`frontend/src/pages/Debugging.jsx`**](file:///c:/Users/admin/OneDrive/Desktop/xr-learn/frontend/src/pages/Debugging.jsx): Connected the submit handler to the backend compiler proxy to check for compilation/syntax errors, and display detailed compiler warnings in the output console.
+*   [**`frontend/src/pages/Training.jsx`**](file:///c:/Users/admin/OneDrive/Desktop/xr-learn/frontend/src/pages/Training.jsx): Connected the editor output errors to the `lastError` state of the sandbox.
 
----
-
-## Complete File Structure
-
-```
-xr-learning/
-│
-├── .env                          ← Supabase credentials (actual, used by Vite)
-├── .env.example                  ← Template for env vars
-├── index.html                    ← HTML entry point (Google Fonts, meta tags, SEO)
-├── package.json                  ← Dependencies & scripts
-├── vite.config.js                ← Vite configuration
-│
-├── public/                       ← Static assets
-│
-├── src/                          ← ALL APPLICATION CODE
-│   │
-│   ├── main.jsx                  ← React 18 entry point (createRoot)
-│   ├── App.jsx                   ← Router with 5 routes
-│   ├── index.css                 ← Complete design system (CSS variables, all styles)
-│   │
-│   ├── lib/
-│   │   └── supabase.js           ← Supabase client init (graceful fallback if no creds)
-│   │
-│   ├── config/
-│   │   └── modules/
-│   │       ├── module1.js        ← What Is XR? (visual-only, click objects)
-│   │       ├── module2.js        ← 3D Space & Coordinates (move box to target)
-│   │       ├── module3.js        ← Scene Hierarchy (parent-child relationships)
-│   │       ├── module4.js        ← Lighting & Materials (match target appearance)
-│   │       ├── module5.js        ← Interaction & Input (add click handler)
-│   │       └── module6.js        ← Build Your First XR Scene (synthesis)
-│   │
-│   ├── pages/
-│   │   ├── Landing.jsx           ← Hero + features + CTAs (public)
-│   │   ├── Login.jsx             ← Email/password sign-in
-│   │   ├── Signup.jsx            ← Name/email/password sign-up
-│   │   ├── Dashboard.jsx         ← 6 module cards + progress bar
-│   │   └── ModulePage.jsx        ← Theory + lazy-loaded workspace
-│   │
-│   ├── components/
-│   │   ├── auth/
-│   │   │   └── ProtectedRoute.jsx  ← Redirects to /login if not authenticated
-│   │   │
-│   │   ├── dashboard/
-│   │   │   └── ModuleCard.jsx      ← Card with status (completed/available/locked)
-│   │   │
-│   │   ├── theory/
-│   │   │   └── TheorySection.jsx   ← Renders heading/text/highlight/list sections
-│   │   │
-│   │   └── workspace/
-│   │       ├── Workspace.jsx       ← 3-panel layout (AI | 3D | Code) + completion logic
-│   │       ├── Scene.jsx           ← R3F Canvas (fog, grid, lights, OrbitControls)
-│   │       ├── SceneObjects.jsx    ← Per-module 3D objects with correct styling
-│   │       ├── CodeEditor.jsx      ← Monaco editor (vs-dark, JetBrains Mono)
-│   │       └── AIPanel.jsx         ← Chat bubbles + Need Help + hint prompt
-│   │
-│   ├── hooks/
-│   │   ├── useAuth.js            ← Auth state (session, user, signOut)
-│   │   ├── useSandbox.js         ← Code→Scene bridge (Proxy API, new Function execution)
-│   │   └── useAI.js              ← AI conversation state + hint system
-│   │
-│   ├── services/
-│   │   └── ai.js                 ← Calls Supabase Edge Function for AI responses
-│   │
-│   └── utils/
-│       ├── progress.js           ← getModuleStatus(), getCompletedCount()
-│       └── checkCompletion.js    ← Per-module completion checks with tolerance
-│
-├── supabase/
-│   └── functions/
-│       └── ai-tutor/
-│           └── index.ts          ← Deno Edge Function (Gemini/Claude, progressive hints)
-│
-└── dist/                         ← Production build output
-```
-
-**Total: 29 source files + 1 edge function**
+### New Files Created:
+*   [**`frontend/src/utils/xrCommandExecutor.js`**](file:///c:/Users/admin/OneDrive/Desktop/xr-learn/frontend/src/utils/xrCommandExecutor.js): Created a reusable, sequential execution layer that applies C# stubs transformations to existing scene objects and dynamic registry meshes.
 
 ---
 
-## Routes
+## 2. Editor Communication with C# Server (`/server`)
 
-| Path | Page | Auth Required |
-|---|---|---|
-| `/` | Landing page | ❌ |
-| `/login` | Login form | ❌ |
-| `/signup` | Signup form | ❌ |
-| `/dashboard` | Module cards + progress | ✅ |
-| `/module/:id` | Theory + workspace | ✅ |
-
----
-
-## The 6 Modules
-
-| # | Title | Task | Completion Check |
-|---|---|---|---|
-| 1 | What Is XR? | Click floating (VR) and anchored (AR) objects | Both objects clicked |
-| 2 | 3D Space & Coordinates | Move blue box to green target at (3, 2, -1) | Position within 0.15 tolerance |
-| 3 | Scene Hierarchy | Parent boxes to table, then move table | Parent set + table moved |
-| 4 | Lighting & Materials | Match target sphere appearance | Color + roughness + metalness match |
-| 5 | Interaction & Input | Add click handler to toggle box color | Click handler registered |
-| 6 | Build Your First XR Scene | Build scene with 2+ objects, hierarchy, interaction | All requirements met |
+The communication follows a secure, centralized flow:
+1.  **Editor Input**: Student writes C# code in the Monaco-based editor (either statement-level or full `MonoBehaviour` classes).
+2.  **Preprocessing**: Statement-level scripts (e.g. `xr.SetPosition("box", ...);`) are wrapped inside a standard Unity boilerplate class containing `using UnityEngine;` and a `Start()` method on the client. Full class inputs are kept untouched.
+3.  **Client request**: The editor calls `api.execute.run(source)` to send a POST request to `/api/execute` on the Node/Express backend.
+4.  **Backend Proxy**: The Express gateway forwards the payload to the C# execution server at `http://localhost:5058/api/execute`.
+5.  **Roslyn Compilation**: The C# server parses the code, analyses semantic structures, checks whitelisting constraints, executes `Start()` or `Update()` lifecycle loops, and replies with structured commands and syntax/runtime issues.
+6.  **Commands Application**: The commands are delivered to the frontend, where the execution layer updates the 3D scene registry and updates the React-Three-Fiber scene state.
 
 ---
 
-## How Each Piece Connects
+## 3. XR Command JSON Format
 
-```
-Student writes code in Monaco
-         │
-         ▼
-   useSandbox.js
-   (builds Proxy API objects per module,
-    executes code via new Function())
-         │
-         ▼
-   React State (sceneState)
-         │
-    ┌────┴────┐
-    ▼         ▼
- SceneObjects    checkCompletion.js
- (R3F renders    (checks if target
-  3D objects)     state reached)
-                      │
-                      ▼
-               Supabase update
-               (marks module complete)
-```
+The C# server returns a structured array of commands with properties in PascalCase or camelCase:
 
-```
-Student asks AI for help
-         │
-         ▼
-   useAI.js (builds context packet:
-   code, scene state, target, errors)
-         │
-         ▼
-   services/ai.js
-   (calls Supabase Edge Function)
-         │
-         ▼
-   ai-tutor/index.ts
-   (Deno function, calls Gemini/Claude
-    with progressive hint system prompt)
-         │
-         ▼
-   Response shown in AIPanel.jsx
+```json
+{
+  "commands": [
+    {
+      "Type": "CreateCube",
+      "Name": "seat",
+      "Position": { "X": 0.0, "Y": 2.0, "Z": 0.0 },
+      "Scale": { "X": 3.0, "Y": 0.35, "Z": 3.0 },
+      "Object": "seat",
+      "X": 0.0,
+      "Y": 2.0,
+      "Z": 0.0,
+      "ScaleX": 3.0,
+      "ScaleY": 0.35,
+      "ScaleZ": 3.0
+    },
+    {
+      "Type": "Rotate",
+      "Name": "backrest",
+      "Object": "backrest",
+      "X": -10.0,
+      "Y": 0.0,
+      "Z": 0.0
+    }
+  ],
+  "errors": [],
+  "astNodes": ["ClassDeclarationSyntax", "MethodDeclarationSyntax", "InvocationExpressionSyntax"],
+  "syntaxNodeCount": 35
+}
 ```
 
 ---
 
-## Design System
+## 4. Three.js XR Command Execution Layer
 
-All styling uses CSS variables in [`index.css`](file:///d:/E_drive/PEC hacks/xr-learning/src/index.css):
-
-| Variable | Value | Usage |
-|---|---|---|
-| `--bg-primary` | `#0a0e1a` | Page backgrounds |
-| `--bg-panel` | `#111827` | Panel backgrounds |
-| `--bg-card` | `#1a2040` | Cards, chat bubbles |
-| `--accent-blue` | `#4488ff` | Primary actions, links |
-| `--accent-green` | `#44ff88` | Success, targets |
-| `--accent-purple` | `#8866ff` | Gradients, accents |
-| `--success` | `#22c55e` | Completed status |
-| `--error` | `#ef4444` | Errors |
-
-**3D Scene styling:** Dark navy bg (`#0a0e1a`), grid floor, blue-tinted ambient light, fog for depth, `MeshStandardMaterial` everywhere.
+The frontend helper `executeXrCommands` processes these commands sequentially:
+*   **Object Registry**: Tracks dynamic meshes by name (e.g. `"seat"`).
+*   **Geometries**: Spawns `<boxGeometry>`, `<sphereGeometry>`, and `<cylinderGeometry>` based on `CreateCube`, `CreateSphere`, and `CreateCylinder` commands.
+*   **Transforms**: Modifies position coordinates (`x`, `y`, `z`) and scale bounds, and calculates relative rotational offsets converting C# Euler degrees into Three.js radians (`deg * Math.PI / 180`).
+*   **Event Handling**: Checks event occurrences (`RegisterClick`) to set `hasClickHandler` and support task objectives completion check.
 
 ---
 
-## Workspace Layout
+## 5. Module Pipeline Reuse
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ 🎯 Task description                                    ← Theory │
-├───────────────┬──────────────────────────┬──────────────────────┤
-│ 🤖 AI TUTOR   │                          │ 💻 CODE EDITOR       │
-│   (20%)       │    🌐 3D SCENE (50%)     │   (30%)              │
-│               │                          │                      │
-│ Chat bubbles  │  Three.js canvas         │  Monaco editor       │
-│ Need Help?    │  Orbit, zoom, pan        │  Run Code button     │
-│ Send message  │  Per-module objects      │  Error display       │
-├───────────────┴──────────────────────────┴──────────────────────┤
-│ ● In Progress                                    Attempts: 3    │
-└─────────────────────────────────────────────────────────────────┘
-```
+All modules share the same execution architecture:
+*   **Learning Pages & Training Arena**: Share the centralized `useSandbox` hook. The hook handles code execution, C# preprocessing, and updates `sceneState`.
+*   **Debugging Hub**: Submits code directly to the `/api/execute` proxy to validate syntax and print real Roslyn semantic/syntactic diagnostics.
 
 ---
 
-## Supabase Tables (Pre-existing)
+## 6. How to Run the Application
 
-| Table | Purpose |
-|---|---|
-| `profiles` | Student name, created_at |
-| `module_progress` | Per-module: completed, hints_used, attempts |
-| `ai_conversations` | Chat history storage |
+To run the complete system locally:
 
-A trigger auto-creates profile + 6 progress rows on signup.
-
----
-
-## How to Run
-
-```bash
-# 1. Install dependencies (already done)
-npm install
-
-# 2. Create .env with Supabase credentials (already done)
-# VITE_SUPABASE_URL=...
-# VITE_SUPABASE_ANON_KEY=...
-
-# 3. Start dev server
-npm run dev
-
-# 4. Open http://localhost:5173
-```
-
-## How to Deploy the Edge Function
-
-```bash
-# In Supabase Dashboard → Edge Functions → Secrets, add:
-# AI_API_KEY = your Gemini API key
-# AI_PROVIDER = gemini
-
-# Then deploy:
-supabase functions deploy ai-tutor
-```
-
----
-
-## Current Status
-
-| Component | Status |
-|---|---|
-| Project scaffolding | ✅ Complete |
-| Design system (CSS) | ✅ Complete |
-| Landing page | ✅ Complete |
-| Login / Signup | ✅ Complete |
-| Protected routes | ✅ Complete |
-| Dashboard + module cards | ✅ Complete |
-| Module configs (all 6) | ✅ Complete |
-| Theory rendering | ✅ Complete |
-| 3D Scene (R3F) | ✅ Complete |
-| Monaco code editor | ✅ Complete |
-| useSandbox (code→scene) | ✅ Complete |
-| Completion checking | ✅ Complete |
-| AI panel UI | ✅ Complete |
-| useAI hook | ✅ Complete |
-| Edge Function (ai-tutor) | ✅ Complete |
-| Supabase client | ✅ Complete |
-| Production build | ✅ Verified (0 errors) |
+1.  **Start C# Server**:
+    Run inside `/server` directory:
+    ```bash
+    dotnet run --urls http://localhost:5058
+    ```
+2.  **Start Node Backend**:
+    Run inside `/backend` directory:
+    ```bash
+    npm run dev
+    ```
+3.  **Start Frontend Dev Server**:
+    Run inside `/frontend` directory:
+    ```bash
+    npm run dev
+    ```
+4.  **Run Tests**:
+    Run inside `/` root directory:
+    ```bash
+    dotnet test XrCodingLab.Tests/XrCodingLab.Tests.csproj
+    ```

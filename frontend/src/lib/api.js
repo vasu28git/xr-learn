@@ -76,6 +76,14 @@ export const api = {
       });
     }
   },
+  execute: {
+    async run(source) {
+      return fetchAPI('/execute', {
+        method: 'POST',
+        body: JSON.stringify({ source }),
+      });
+    }
+  },
   diagnostic: {
     async check() {
       return fetchAPI('/diagnostic');

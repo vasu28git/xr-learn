@@ -24,6 +24,14 @@ namespace UnityEngine
         public double y;
         public double z;
         public Vector3(double x, double y, double z) { this.x = x; this.y = y; this.z = z; }
+        public static Vector3 down => new Vector3(0, -1, 0);
+        public static Vector3 forward => new Vector3(0, 0, 1);
+        public static Vector3 up => new Vector3(0, 1, 0);
+        public static Vector3 right => new Vector3(1, 0, 0);
+        public static Vector3 left => new Vector3(-1, 0, 0);
+        public static Vector3 back => new Vector3(0, 0, -1);
+        public static Vector3 zero => new Vector3(0, 0, 0);
+        public static Vector3 one => new Vector3(1, 1, 1);
     }
 
     public struct Quaternion
@@ -38,6 +46,28 @@ namespace UnityEngine
         public Quaternion rotation { get; set; }
         public void Rotate(double x, double y, double z) {}
     }
+
+    public static class Time
+    {
+        public static double deltaTime => 0.016;
+    }
+}
+
+public static class Light
+{
+    public static double intensity { get; set; }
+}
+
+public static class Material
+{
+    public static string color { get; set; }
+    public static double roughness { get; set; }
+    public static double metalness { get; set; }
+}
+
+public static class Teleporter
+{
+    public static void SetDirection(UnityEngine.Vector3 direction) {}
 }
 
 public static class xr
@@ -48,6 +78,7 @@ public static class xr
     public static void Rotate(string name, double x, double y, double z) {}
     public static void SetPosition(string name, UnityEngine.Vector3 position) {}
     public static void SetScale(string name, UnityEngine.Vector3 scale) {}
+    public static void SetParent(string childName, string parentName) {}
 }
 ";
 
@@ -118,13 +149,18 @@ public static class xr
         // 7. Interpret
         var methodDeclarations = root.DescendantNodes()
             .OfType<MethodDeclarationSyntax>()
-            .Where(m => m.Identifier.ValueText == "Start" || m.Identifier.ValueText == "Update")
+            .Where(m => m.Identifier.ValueText == "Start" || m.Identifier.ValueText == "Update" || m.Identifier.ValueText == "OnMouseDown")
             .ToList();
 
         var interpreterState = new InterpreterState(semanticModel);
 
         foreach (var method in methodDeclarations)
         {
+            if (method.Identifier.ValueText == "OnMouseDown")
+            {
+                interpreterState.Commands.Add(new XrCommand("RegisterClick", "box", Object: "box"));
+            }
+
             if (method.Body != null)
             {
                 foreach (var statement in method.Body.Statements)
@@ -252,9 +288,9 @@ public static class xr
         public override void VisitMethodDeclaration(MethodDeclarationSyntax node)
         {
             var methodName = node.Identifier.ValueText;
-            if (methodName != "Start" && methodName != "Update")
+            if (methodName != "Start" && methodName != "Update" && methodName != "OnMouseDown")
             {
-                AddIssue("unsupported", node, $"Method '{methodName}' is not supported. Only 'Start()' and 'Update()' lifecycle methods are allowed.");
+                AddIssue("unsupported", node, $"Method '{methodName}' is not supported. Only 'Start()', 'Update()', and 'OnMouseDown()' lifecycle methods are allowed.");
                 return;
             }
             base.VisitMethodDeclaration(node);
@@ -285,10 +321,17 @@ public static class xr
 
             if (containingType == "xr")
             {
-                var allowedMethods = new[] { "CreateCube", "CreateSphere", "CreateCylinder", "Rotate", "SetPosition", "SetScale" };
+                var allowedMethods = new[] { "CreateCube", "CreateSphere", "CreateCylinder", "Rotate", "SetPosition", "SetScale", "SetParent" };
                 if (!allowedMethods.Contains(methodName))
                 {
                     AddIssue("unsupported", node, $"Unsupported XR operation: 'xr.{methodName}'.");
+                }
+            }
+            else if (containingType == "Teleporter")
+            {
+                if (methodName != "SetDirection")
+                {
+                    AddIssue("unsupported", node, $"Unsupported operation: 'Teleporter.{methodName}'.");
                 }
             }
             else if (containingType == "UnityEngine.Transform")
@@ -323,6 +366,10 @@ public static class xr
                     containingType != "UnityEngine.Transform" &&
                     containingType != "UnityEngine.Vector3" &&
                     containingType != "UnityEngine.Quaternion" &&
+                    containingType != "UnityEngine.Time" &&
+                    containingType != "Light" &&
+                    containingType != "Material" &&
+                    containingType != "Teleporter" &&
                     containingType != "xr" &&
                     !containingType.StartsWith("UnityEngine.MonoBehaviour"))
                 {
@@ -461,6 +508,53 @@ public static class xr
                     else
                     {
                         throw new Exception($"Property transform.{prop} is not supported.");
+                    }
+                }
+                else if (baseStr == "Light")
+                {
+                    if (prop == "intensity")
+                    {
+                        if (rightVal is not double intensityVal)
+                        {
+                            throw new Exception("Light.intensity requires a numeric value.");
+                        }
+                        AddCommand(new XrCommand("SetIntensity", "light", Object: "light", X: intensityVal));
+                    }
+                    else
+                    {
+                        throw new Exception($"Property Light.{prop} is not supported.");
+                    }
+                }
+                else if (baseStr == "Material")
+                {
+                    if (prop == "color")
+                    {
+                        var colorVal = rightVal as string;
+                        if (string.IsNullOrEmpty(colorVal))
+                        {
+                            throw new Exception("Material.color requires a string value.");
+                        }
+                        AddCommand(new XrCommand("SetColor", Name: colorVal, Object: "material"));
+                    }
+                    else if (prop == "roughness")
+                    {
+                        if (rightVal is not double roughnessVal)
+                        {
+                            throw new Exception("Material.roughness requires a numeric value.");
+                        }
+                        AddCommand(new XrCommand("SetRoughness", "material", Object: "material", X: roughnessVal));
+                    }
+                    else if (prop == "metalness")
+                    {
+                        if (rightVal is not double metalnessVal)
+                        {
+                            throw new Exception("Material.metalness requires a numeric value.");
+                        }
+                        AddCommand(new XrCommand("SetMetalness", "material", Object: "material", X: metalnessVal));
+                    }
+                    else
+                    {
+                        throw new Exception($"Property Material.{prop} is not supported.");
                     }
                 }
                 else
@@ -615,6 +709,46 @@ public static class xr
                         X: scaleVal.X, Y: scaleVal.Y, Z: scaleVal.Z
                     ));
                 }
+                else if (methodName == "SetParent")
+                {
+                    if (args.Count != 2)
+                    {
+                        throw new Exception("xr.SetParent requires exactly 2 arguments.");
+                    }
+
+                    var childVal = EvaluateExpression(args[0].Expression) as string;
+                    var parentVal = EvaluateExpression(args[1].Expression) as string;
+                    if (string.IsNullOrEmpty(childVal) || string.IsNullOrEmpty(parentVal))
+                    {
+                        throw new Exception("xr.SetParent requires non-empty string child and parent names.");
+                    }
+
+                    AddCommand(new XrCommand(
+                        Type: "SetParent",
+                        Name: childVal,
+                        Object: parentVal
+                    ));
+                }
+            }
+            else if (containingType == "Teleporter" && methodName == "SetDirection")
+            {
+                var args = invocation.ArgumentList.Arguments;
+                if (args.Count != 1)
+                {
+                    throw new Exception("Teleporter.SetDirection requires exactly 1 Vector3 argument.");
+                }
+                var dirVal = EvaluateExpression(args[0].Expression) as Vector3D;
+                if (dirVal == null)
+                {
+                    throw new Exception("Teleporter.SetDirection requires a valid Vector3 direction.");
+                }
+                AddCommand(new XrCommand(
+                    Type: "SetDirection",
+                    Name: "teleporter",
+                    Position: dirVal,
+                    Object: "teleporter",
+                    X: dirVal.X, Y: dirVal.Y, Z: dirVal.Z
+                ));
             }
             else if (containingType == "UnityEngine.Transform" && methodName == "Rotate")
             {
@@ -757,16 +891,42 @@ public static class xr
 
             if (expression is MemberAccessExpressionSyntax memberAccess)
             {
+                var exprStr = memberAccess.Expression.ToString();
+                var propName = memberAccess.Name.Identifier.ValueText;
+
+                if (exprStr == "Vector3")
+                {
+                    return propName switch
+                    {
+                        "down" => new Vector3D(0, -1, 0),
+                        "forward" => new Vector3D(0, 0, 1),
+                        "up" => new Vector3D(0, 1, 0),
+                        "right" => new Vector3D(1, 0, 0),
+                        "left" => new Vector3D(-1, 0, 0),
+                        "back" => new Vector3D(0, 0, -1),
+                        "zero" => new Vector3D(0, 0, 0),
+                        "one" => new Vector3D(1, 1, 1),
+                        _ => throw new Exception($"Vector3 does not contain a static property named '{propName}'.")
+                    };
+                }
+                if (exprStr == "Time" || exprStr == "UnityEngine.Time")
+                {
+                    if (propName == "deltaTime")
+                    {
+                        return 0.016; // 60 FPS frame time stub
+                    }
+                }
+
                 var baseVal = EvaluateExpression(memberAccess.Expression);
                 if (baseVal is Vector3D vec)
                 {
-                    var propName = memberAccess.Name.Identifier.ValueText.ToLowerInvariant();
-                    return propName switch
+                    var propNameLower = propName.ToLowerInvariant();
+                    return propNameLower switch
                     {
                         "x" => vec.X,
                         "y" => vec.Y,
                         "z" => vec.Z,
-                        _ => throw new Exception($"Vector3 does not contain a property named '{memberAccess.Name.Identifier.ValueText}'.")
+                        _ => throw new Exception($"Vector3 does not contain a property named '{propName}'.")
                     };
                 }
 

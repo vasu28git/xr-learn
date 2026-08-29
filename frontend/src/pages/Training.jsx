@@ -214,6 +214,7 @@ export default function Training() {
                   code={code}
                   onChange={setCode}
                   onRun={handleRunCode}
+                  error={lastError}
                 />
               </Suspense>
             </div>

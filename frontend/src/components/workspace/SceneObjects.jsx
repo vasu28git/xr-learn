@@ -414,6 +414,48 @@ function Module6Objects({ sceneState }) {
   )
 }
 
+/* ========== DYNAMIC SCENE OBJECTS (C# PIPELINE) ========== */
+
+function DynamicSceneObjects({ dynamicObjects }) {
+  if (!dynamicObjects) return null
+  return (
+    <>
+      {Object.values(dynamicObjects).map((obj) => {
+        const key = obj.name || obj.id
+        const pos = obj.position || [0, 0, 0]
+        const scale = obj.scale || [1, 1, 1]
+        const rot = obj.rotation || [0, 0, 0]
+        
+        if (obj.type === 'cube' || obj.type === 'box') {
+          return (
+            <mesh key={key} name={key} position={pos} scale={scale} rotation={rot}>
+              <boxGeometry args={[1, 1, 1]} />
+              <meshStandardMaterial color="#4488ff" roughness={0.4} metalness={0.3} />
+            </mesh>
+          )
+        }
+        if (obj.type === 'sphere') {
+          return (
+            <mesh key={key} name={key} position={pos} scale={scale} rotation={rot}>
+              <sphereGeometry args={[0.5, 32, 32]} />
+              <meshStandardMaterial color="#44ff88" roughness={0.4} metalness={0.3} />
+            </mesh>
+          )
+        }
+        if (obj.type === 'cylinder') {
+          return (
+            <mesh key={key} name={key} position={pos} scale={scale} rotation={rot}>
+              <cylinderGeometry args={[0.5, 0.5, 1, 32]} />
+              <meshStandardMaterial color="#ffaa44" roughness={0.4} metalness={0.3} />
+            </mesh>
+          )
+        }
+        return null
+      })}
+    </>
+  )
+}
+
 /* ========== MAIN EXPORT ========== */
 
 /* ========== SCENE INVALIDATOR (for frameloop="demand") ========== */
@@ -427,34 +469,43 @@ function SceneInvalidator({ sceneState }) {
 }
 
 export default function SceneObjects({ moduleId, sceneState, moduleConfig, onObjectClick }) {
+  if (Number(moduleId) !== 1 && !sceneState?.hasRun) {
+    return <SceneInvalidator sceneState={sceneState} />
+  }
+
+  const hasDynamicObjects = sceneState?.dynamicObjects && Object.keys(sceneState.dynamicObjects).length > 0;
+
   let moduleScene = null
-  switch (Number(moduleId)) {
-    case 1:
-      moduleScene = <Module1Objects sceneState={sceneState} onObjectClick={onObjectClick} />
-      break
-    case 2:
-      moduleScene = <Module2Objects sceneState={sceneState} />
-      break
-    case 3:
-      moduleScene = <Module3Objects sceneState={sceneState} />
-      break
-    case 4:
-      moduleScene = <Module4Objects sceneState={sceneState} />
-      break
-    case 5:
-      moduleScene = <Module5Objects sceneState={sceneState} />
-      break
-    case 6:
-      moduleScene = <Module6Objects sceneState={sceneState} />
-      break
-    default:
-      moduleScene = null
+  if (!hasDynamicObjects) {
+    switch (Number(moduleId)) {
+      case 1:
+        moduleScene = <Module1Objects sceneState={sceneState} onObjectClick={onObjectClick} />
+        break
+      case 2:
+        moduleScene = <Module2Objects sceneState={sceneState} />
+        break
+      case 3:
+        moduleScene = <Module3Objects sceneState={sceneState} />
+        break
+      case 4:
+        moduleScene = <Module4Objects sceneState={sceneState} />
+        break
+      case 5:
+        moduleScene = <Module5Objects sceneState={sceneState} />
+        break
+      case 6:
+        moduleScene = <Module6Objects sceneState={sceneState} />
+        break
+      default:
+        moduleScene = null
+    }
   }
 
   return (
     <>
       <SceneInvalidator sceneState={sceneState} />
       {moduleScene}
+      <DynamicSceneObjects dynamicObjects={sceneState?.dynamicObjects} />
     </>
   )
 }

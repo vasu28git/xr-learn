@@ -2,6 +2,7 @@ import { useState, useCallback, lazy, Suspense, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
+import { api } from '../lib/api'
 
 const CodeEditor = lazy(() => import('../components/workspace/CodeEditor'))
 
@@ -120,6 +121,13 @@ function TeleporterPad({ beamDirection }) {
   )
 }
 
+// --- STYLES ---
+const difficultyColors = {
+  beginner: 'bg-green-500/10 text-green-500 border-green-500/30',
+  intermediate: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30',
+  advanced: 'bg-red-500/10 text-red-500 border-red-500/30'
+}
+
 // --- TICKETS LIST ---
 const tickets = [
   {
@@ -214,6 +222,7 @@ export default function Debugging() {
   const [code, setCode] = useState('')
   const [isResolved, setIsResolved] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
+  const [lastError, setLastError] = useState(null)
   const navigate = useNavigate()
 
   const handleSelectTicket = (ticket) => {
@@ -221,13 +230,31 @@ export default function Debugging() {
     setCode(ticket.starterCode)
     setIsResolved(false)
     setShowFeedback(false)
+    setLastError(null)
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedTicket) return
-    const passed = selectedTicket.validate(code)
-    setIsResolved(passed)
-    setShowFeedback(true)
+    setIsResolved(false)
+    setShowFeedback(false)
+    setLastError(null)
+
+    try {
+      const res = await api.execute.run(code)
+      if (res.errors && res.errors.length > 0) {
+        const firstErr = res.errors[0]
+        setLastError(`${firstErr.kind.toUpperCase()} ERROR: ${firstErr.message} (Line ${firstErr.line}, Col ${firstErr.column})`)
+        setShowFeedback(true)
+        return
+      }
+
+      const passed = selectedTicket.validate(code)
+      setIsResolved(passed)
+      setShowFeedback(true)
+    } catch (err) {
+      setLastError(`Network Error: ${err.message}`)
+      setShowFeedback(true)
+    }
   }
 
   return (
@@ -411,10 +438,16 @@ export default function Debugging() {
                     </div>
                   ) : (
                     <div className="space-y-2 text-error font-semibold">
-                      <p>✗ Compilation Warning: Logic test failed.</p>
-                      <p>✗ Parameter mismatch: Component remains static.</p>
+                      {lastError ? (
+                        <p>{lastError}</p>
+                      ) : (
+                        <>
+                          <p>✗ Compilation Warning: Logic test failed.</p>
+                          <p>✗ Parameter mismatch: Component remains static.</p>
+                        </>
+                      )}
                       <p className="text-on-surface-variant text-[10px] font-normal leading-relaxed mt-2 bg-error-container/10 border border-error/20 p-2.5 rounded">
-                        Verification failed. Double check if you modified the correct values. Check the hints inside the center pane curriculum description.
+                        {lastError ? "Fix compilation errors in the C# source code." : "Verification failed. Double check if you modified the correct values. Check the hints inside the center pane curriculum description."}
                       </p>
                     </div>
                   )}
