@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 .env
+.env.local
+.env.development
+.env.production
 .env*.local
 backend/node_modules
 frontend/node_modules
@@ -27,4 +30,3 @@ frontend/dist
 *.njsproj
 *.sln
 *.sw?
-
