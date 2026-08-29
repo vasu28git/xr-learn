@@ -7,49 +7,46 @@ export const module6 = {
       { type: 'heading', content: 'Putting It All Together' },
       { type: 'text', content: 'Congratulations — you\'ve learned the five fundamental concepts of XR development. Now it\'s time to combine them into your own creation.' },
       { type: 'heading', content: 'Quick Recap' },
-      { type: 'list', items: [
-        'Module 1: XR is the umbrella term for AR, VR, and MR.',
-        'Module 2: Every 3D object exists at an (X, Y, Z) position.',
-        'Module 3: Parent-child relationships let objects move as groups.',
-        'Module 4: Lights and materials define how objects look.',
-        'Module 5: Click handlers make objects interactive.'
-      ]},
+      {
+        type: 'list', items: [
+          'Module 1: XR is the umbrella term for AR, VR, and MR.',
+          'Module 2: Every 3D object exists at an (X, Y, Z) position.',
+          'Module 3: Parent-child relationships let objects move as groups.',
+          'Module 4: Lights and materials define how objects look.',
+          'Module 5: Click handlers make objects interactive.'
+        ]
+      },
       { type: 'highlight', content: 'In this final exercise, you\'ll build a scene that uses ALL of these concepts. Your scene must include: at least 2 positioned objects, a parent-child relationship, custom lighting, and one interactive element.' },
       { type: 'heading', content: 'Tips for Your Scene' },
-      { type: 'list', items: [
-        'Start simple — position your objects first.',
-        'Create at least one parent-child relationship.',
-        'Adjust the lighting to set the mood.',
-        'Add a click handler to make something interactive.',
-        'Be creative! There\'s no single correct answer.'
-      ]},
+      {
+        type: 'list', items: [
+          'Start simple — position your objects first.',
+          'Create at least one parent-child relationship.',
+          'Adjust the lighting to set the mood.',
+          'Add a click handler to make something interactive.',
+          'Be creative! There\'s no single correct answer.'
+        ]
+      },
       { type: 'text', content: 'All APIs from previous modules are available. This is your sandbox — experiment freely and build something you\'re proud of.' },
     ]
   },
   handsOn: {
     task: 'Build your own XR scene. It must include: at least 2 objects with correct positions, a parent-child relationship, custom lighting, and one interactive element.',
-    starterCode: `// Your first XR scene — build anything!
-// You have access to: position, hierarchy, lighting, materials, interaction
+    starterCode: `// Position box1, box2 and sphere1 in world space
+box1.transform.position = new Vector3(0f, 1f, 0f);
+box2.transform.position = new Vector3(2f, 1f, 0f);
+sphere1.transform.position = new Vector3(-2f, 1f, 2f);
 
-// Position objects
-box1.position.x = 0
-box1.position.y = 1
-box1.position.z = 0
+// Create hierarchy — make box2 a child of box1
+box2.transform.parent = box1.transform;
 
-box2.position.x = 2
-box2.position.y = 1
-box2.position.z = 0
+// Adjust custom point light intensity
+light.intensity = 1.2f;
 
-// Create hierarchy
-scene.setParent(box2, box1)
-
-// Adjust lighting
-light.intensity = 1.0
-
-// Add interaction
-box1.onClick(function() {
-  // Make it interactive!
-})`,
+// Register a click handler using C# events
+box1.OnClick(() => {
+  box1.GetComponent<Renderer>().material.color = Color.green;
+});`,
     scene: {
       objects: [
         { id: 'box1', type: 'box', position: [0, 0.5, 0], color: '#4488ff', size: [1, 1, 1] },

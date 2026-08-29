@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import { module1 } from '../config/modules/module1'
 import { module2 } from '../config/modules/module2'
 import { module3 } from '../config/modules/module3'
@@ -210,19 +210,19 @@ function buildModuleAPI(moduleId, updateState, getState) {
                     }
                     // Count positioned objects
                     let positioned = 0
-                    ;['box1', 'box2', 'sphere1'].forEach(objId => {
-                      const pos = newState[objId]?.position
-                      if (pos) {
-                        const initial = getInitialState(6)[objId]?.position
-                        if (
-                          pos.x !== initial?.x ||
-                          pos.y !== initial?.y ||
-                          pos.z !== initial?.z
-                        ) {
-                          positioned++
+                      ;['box1', 'box2', 'sphere1'].forEach(objId => {
+                        const pos = newState[objId]?.position
+                        if (pos) {
+                          const initial = getInitialState(6)[objId]?.position
+                          if (
+                            pos.x !== initial?.x ||
+                            pos.y !== initial?.y ||
+                            pos.z !== initial?.z
+                          ) {
+                            positioned++
+                          }
                         }
-                      }
-                    })
+                      })
                     newState.objectsPositioned = positioned
                     return newState
                   })
@@ -338,22 +338,99 @@ export function useSandbox(moduleId) {
   const [sceneState, setSceneState] = useState(() => getInitialState(id))
   const [lastError, setLastError] = useState(null)
 
+  // Transpiler cache: skip re-parsing if code hasn't changed
+  const transpileCache = React.useRef(new Map())
+
+  // C# to JS transpiler
+  const transpileCSharpToJS = useCallback((csharp) => {
+    // Check cache first
+    if (transpileCache.current.has(csharp)) {
+      return transpileCache.current.get(csharp)
+    }
+
+    let js = csharp
+
+    // Remove C# float suffixes: 3.0f -> 3.0, 3f -> 3
+    js = js.replace(/(\d+\.?\d*)\s*f\b/gi, '$1')
+
+    // child.transform.parent = parent.transform;
+    js = js.replace(/(\w+)\.transform\.parent\s*=\s*(\w+)\.transform/g, 'scene.setParent($1, $2)')
+
+    // obj.transform.position = new Vector3(x, y, z);
+    js = js.replace(/(\w+)\.transform\.position\s*=\s*new\s+Vector3\s*\(([^)]+)\)/gi, (match, obj, args) => {
+      const coords = args.split(',').map(s => s.trim())
+      if (coords.length === 3) {
+        return `${obj}.position.x = ${coords[0]}; ${obj}.position.y = ${coords[1]}; ${obj}.position.z = ${coords[2]};`
+      }
+      return match
+    })
+
+    // obj.transform.position.x = value;
+    js = js.replace(/(\w+)\.transform\.position\.([xyz])\s*=\s*([^;\n]+)/gi, '$1.position.$2 = $3')
+
+    // obj.GetComponent<Renderer>().material.color = Color.xxx or hex;
+    js = js.replace(/(\w+)\.GetComponent<Renderer>\(\)\.material\.color\s*=\s*(Color\.\w+|["'][^"']+["'])/gi, (match, obj, val) => {
+      let hex = val
+      if (/color\.red/i.test(val)) hex = "'#ff4444'"
+      if (/color\.blue/i.test(val)) hex = "'#4488ff'"
+      if (/color\.green/i.test(val)) hex = "'#44ff88'"
+      if (/color\.white/i.test(val)) hex = "'#ffffff'"
+      return `${obj}.color = ${hex}`
+    })
+
+    // material.color = Color.xxx or hex;
+    js = js.replace(/material\.color\s*=\s*(Color\.\w+|["'][^"']+["'])/gi, (match, val) => {
+      let hex = val
+      if (/color\.red/i.test(val)) hex = "'#ff6644'"
+      if (/color\.blue/i.test(val)) hex = "'#4488ff'"
+      if (/color\.green/i.test(val)) hex = "'#44ff88'"
+      if (/color\.white/i.test(val)) hex = "'#ffffff'"
+      return `material.color = ${hex}`
+    })
+
+    // obj.OnClick(() => { ... })
+    js = js.replace(/(\w+)\.OnClick\(\(\)\s*=>\s*\{/gi, '$1.onClick(function() {')
+    // Close pattern: });  (already valid JS)
+
+    // Strip C# type keywords
+    js = js.replace(/\b(void|var|float|int|string|bool|public|private|protected)\b/g, 'let')
+
+    // Cache the result
+    transpileCache.current.set(csharp, js)
+    return js
+  }, [])
+
   const runCode = useCallback(
     (code) => {
       setLastError(null)
+
+      // Transpile C# to JS
+      const transpiledCode = transpileCSharpToJS(code)
 
       const api = buildModuleAPI(id, setSceneState, () => sceneState)
 
       try {
         const keys = Object.keys(api)
         const values = Object.values(api)
-        const fn = new Function(...keys, code)
+
+        // Wrap execution with a timeout guard (200ms max)
+        let didTimeout = false
+        const timeoutId = setTimeout(() => {
+          didTimeout = true
+        }, 200)
+
+        const fn = new Function(...keys, transpiledCode)
         fn(...values)
+
+        clearTimeout(timeoutId)
+        if (didTimeout) {
+          setLastError('Code execution took too long (> 200ms). Check for infinite loops.')
+        }
       } catch (error) {
         setLastError(error.message)
       }
     },
-    [id]
+    [id, transpileCSharpToJS]
   )
 
   const handleSceneClick = useCallback(

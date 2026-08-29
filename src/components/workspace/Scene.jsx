@@ -27,6 +27,7 @@ function AxisIndicator() {
 export default function Scene({ moduleId, sceneState, moduleConfig, onObjectClick }) {
   return (
     <Canvas
+      frameloop="demand"
       dpr={[1, 1.5]}
       camera={{ position: [6, 4, 6], fov: 60 }}
       style={{ background: '#0a0e1a', width: '100%', height: '100%', minHeight: 500 }}

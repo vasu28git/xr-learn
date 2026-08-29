@@ -57,6 +57,9 @@ export default function Dashboard() {
         </div>
         <div className="dashboard-header-right">
           <span className="dashboard-user">👋 {userName}</span>
+          <button className="btn btn-secondary btn-sm" onClick={() => navigate('/training')}>
+            🏋️ Training Arena
+          </button>
           <button className="btn btn-ghost btn-sm" onClick={handleLogout}>
             Log Out
           </button>

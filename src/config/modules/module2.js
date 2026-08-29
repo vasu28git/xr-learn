@@ -9,11 +9,13 @@ export const module2 = {
       { type: 'highlight', content: 'Think of it like this: X goes left and right. Y goes up and down. Z goes forward and backward (toward you and away from you).' },
       { type: 'heading', content: 'Position, Rotation, Scale' },
       { type: 'text', content: 'Every 3D object has three fundamental properties:' },
-      { type: 'list', items: [
-        'Position — Where the object is in space. Defined by (X, Y, Z) coordinates.',
-        'Rotation — How the object is oriented. Measured in radians or degrees around each axis.',
-        'Scale — How big the object is. A scale of 1 is the default size. Scale 2 means double the size.'
-      ]},
+      {
+        type: 'list', items: [
+          'Position — Where the object is in space. Defined by (X, Y, Z) coordinates.',
+          'Rotation — How the object is oriented. Measured in radians or degrees around each axis.',
+          'Scale — How big the object is. A scale of 1 is the default size. Scale 2 means double the size.'
+        ]
+      },
       { type: 'heading', content: 'World Space vs Local Space' },
       { type: 'text', content: 'World space is the global coordinate system — the same for every object. Position (0, 0, 0) is the center of the world. Local space is relative to an object\'s parent. If a child object is at local position (1, 0, 0) and its parent is at world position (5, 0, 0), the child\'s world position is (6, 0, 0).' },
       { type: 'highlight', content: 'In the exercise below, you\'ll move a blue box to a green target by setting its X, Y, and Z position values. Watch the XYZ axes in the scene to understand which direction each axis points.' },

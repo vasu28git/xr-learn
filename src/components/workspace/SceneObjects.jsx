@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { useFrame } from '@react-three/fiber'
+import React, { useRef, useState, useEffect } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 
@@ -416,21 +416,45 @@ function Module6Objects({ sceneState }) {
 
 /* ========== MAIN EXPORT ========== */
 
+/* ========== SCENE INVALIDATOR (for frameloop="demand") ========== */
+
+function SceneInvalidator({ sceneState }) {
+  const { invalidate } = useThree()
+  useEffect(() => {
+    invalidate()
+  }, [sceneState, invalidate])
+  return null
+}
+
 export default function SceneObjects({ moduleId, sceneState, moduleConfig, onObjectClick }) {
+  let moduleScene = null
   switch (Number(moduleId)) {
     case 1:
-      return <Module1Objects sceneState={sceneState} onObjectClick={onObjectClick} />
+      moduleScene = <Module1Objects sceneState={sceneState} onObjectClick={onObjectClick} />
+      break
     case 2:
-      return <Module2Objects sceneState={sceneState} />
+      moduleScene = <Module2Objects sceneState={sceneState} />
+      break
     case 3:
-      return <Module3Objects sceneState={sceneState} />
+      moduleScene = <Module3Objects sceneState={sceneState} />
+      break
     case 4:
-      return <Module4Objects sceneState={sceneState} />
+      moduleScene = <Module4Objects sceneState={sceneState} />
+      break
     case 5:
-      return <Module5Objects sceneState={sceneState} />
+      moduleScene = <Module5Objects sceneState={sceneState} />
+      break
     case 6:
-      return <Module6Objects sceneState={sceneState} />
+      moduleScene = <Module6Objects sceneState={sceneState} />
+      break
     default:
-      return null
+      moduleScene = null
   }
+
+  return (
+    <>
+      <SceneInvalidator sceneState={sceneState} />
+      {moduleScene}
+    </>
+  )
 }

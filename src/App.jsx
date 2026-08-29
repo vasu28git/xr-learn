@@ -4,6 +4,7 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import Dashboard from './pages/Dashboard'
 import ModulePage from './pages/ModulePage'
+import Training from './pages/Training'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 
 export default function App() {
@@ -26,6 +27,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <ModulePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/training"
+          element={
+            <ProtectedRoute>
+              <Training />
             </ProtectedRoute>
           }
         />
