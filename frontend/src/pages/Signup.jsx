@@ -18,6 +18,7 @@ export default function Signup() {
 
     try {
       await api.auth.signup(email, password, fullName)
+      localStorage.setItem('show-diagnostic', 'true')
       navigate('/dashboard')
     } catch (signUpError) {
       setError(signUpError.message)

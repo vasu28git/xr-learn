@@ -54,11 +54,13 @@ export default function DiagnosticGate({ children }) {
     )
   }
 
-  // User hasn't completed diagnostic yet, redirect to diagnostic quiz
-  if (!hasDiagnostic) {
+  const shouldShowDiagnostic = localStorage.getItem('show-diagnostic') === 'true'
+
+  // User hasn't completed diagnostic yet AND this is a new signup
+  if (!hasDiagnostic && shouldShowDiagnostic) {
     return <Navigate to="/diagnostic" replace />
   }
 
-  // User has completed diagnostic, render children (Dashboard)
+  // User has completed diagnostic (or bypassed it), render children (Dashboard)
   return children
 }

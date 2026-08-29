@@ -64,6 +64,9 @@ export default function Diagnostic() {
       // Submit through API client
       await api.diagnostic.submit(rows)
 
+      // Clear the diagnostic gate flag
+      localStorage.removeItem('show-diagnostic')
+
       // Notify auth state updated and route to dashboard
       window.dispatchEvent(new Event('auth-state-change'))
       navigate('/dashboard')
@@ -174,14 +177,25 @@ export default function Diagnostic() {
             ))}
           </div>
 
-          {/* Submit */}
-          <button
+           <button
             type="submit"
             disabled={loading || answeredCount !== diagnosticQuestions.length}
             className="w-full bg-primary hover:bg-primary-fixed text-on-primary font-headline-sm text-xs py-3 rounded-xl font-bold transition-colors cursor-pointer flex justify-center items-center gap-2 shadow-lg shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-[18px]">done_all</span>
             {loading ? 'Analyzing Quiz Results...' : 'Submit Assessment & Continue'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem('show-diagnostic')
+              navigate('/dashboard')
+            }}
+            className="w-full border border-outline-variant hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-headline-sm text-xs py-2.5 rounded-xl font-semibold transition-colors cursor-pointer flex justify-center items-center gap-2"
+          >
+            <span className="material-symbols-outlined text-[16px]">skip_next</span>
+            Skip Assessment & Go to Dashboard
           </button>
         </form>
       </div>
