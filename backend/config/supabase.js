@@ -18,6 +18,9 @@ const getSupabaseClient = (req) => {
   const authHeader = req?.headers?.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
+    
+    if (token === 'guest-token') return null;
+
     return createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: false,
