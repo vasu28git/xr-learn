@@ -1,8 +1,6 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenAI } = require("@google/genai");
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "dummy-key" });
 const ALLOWED_SECTION_TYPES = ["heading", "text", "highlight", "list"];
 
 async function generateLearningModule({ moduleId, moduleTitle, retrievedContent }) {
@@ -21,8 +19,12 @@ Rules:
 - Do not include any hands-on task, starter code, scene config, or targetState — theory only.
 - Return ONLY valid JSON, no markdown fences, no preamble.`;
 
-  const result = await model.generateContent(prompt);
-  const raw = result.response.text().trim();
+  const response = await ai.models.generateContent({
+    model: "gemini-2.0-flash",
+    contents: prompt,
+  });
+  
+  const raw = response.text.trim();
 
   let parsed;
   try {

@@ -1,6 +1,6 @@
 require('dotenv').config();
-const { searchByVector } = require("./vectorClient");
-const { embedText } = require("./embeddings");
+const { searchByVector } = require("../lib/vectorClient");
+const { embedText } = require("../lib/embeddings");
 
 async function main() {
   const v = await embedText("physics collisions rigidbody gravity");

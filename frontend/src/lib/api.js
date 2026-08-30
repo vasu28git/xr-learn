@@ -35,6 +35,16 @@ export const api = {
       }
       return data;
     },
+    async guest() {
+      const data = await fetchAPI('/auth/guest', {
+        method: 'POST',
+      });
+      if (data.session?.access_token) {
+        localStorage.setItem('token', data.session.access_token);
+        window.dispatchEvent(new Event('auth-state-change'));
+      }
+      return data;
+    },
     async signup(email, password, fullName) {
       const data = await fetchAPI('/auth/signup', {
         method: 'POST',

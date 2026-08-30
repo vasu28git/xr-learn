@@ -1,14 +1,12 @@
 const mammoth = require("mammoth");
-const { embedText } = require("./embeddings");
-const { ensureCollection, upsertChunk } = require("./vectorClient");
+const { embedText } = require("../lib/embeddings");
+const { ensureCollection, upsertChunk } = require("../lib/vectorClient");
 
 const MARKER_REGEX = /<!--\s*MODULE_ID:\s*(\d+)\s*\|\s*TOPIC:\s*([a-z0-9-]+)\s*-->/g;
 
 async function extractRawText(docxPath) {
   const result = await mammoth.extractRawText({ path: docxPath });
   if (result.messages?.length) {
-    // mammoth surfaces non-fatal warnings (e.g. unrecognized styles) — log,
-    // don't fail the run on them.
     for (const m of result.messages) {
       console.warn(`[mammoth] ${m.type}: ${m.message}`);
     }
@@ -16,13 +14,6 @@ async function extractRawText(docxPath) {
   return result.value;
 }
 
-/**
- * Splits the full document text into per-module chunks using the
- * MODULE_ID/TOPIC markers as boundaries. Each chunk runs from just after
- * its own marker to just before the next marker (or end of document).
- * The marker line itself and the "Module N — Title" heading that follows
- * are kept in the chunk — they're useful context for the embedding.
- */
 function splitIntoModules(fullText) {
   const markers = [...fullText.matchAll(MARKER_REGEX)];
 
@@ -43,7 +34,6 @@ function splitIntoModules(fullText) {
     return { moduleId, topic, text };
   });
 
-  // Sanity checks — fail loudly rather than silently ingesting something wrong.
   const seenIds = new Set();
   for (const m of modules) {
     if (seenIds.has(m.moduleId)) {
@@ -60,7 +50,7 @@ function splitIntoModules(fullText) {
 
 async function ingest(docxPath) {
   if (!docxPath) {
-    console.error("Usage: node backend/ingest.js <path-to-tagged-docx>");
+    console.error("Usage: node backend/scripts/ingest.js <path-to-tagged-docx>");
     process.exit(1);
   }
 
@@ -81,7 +71,7 @@ async function ingest(docxPath) {
   for (const m of modules) {
     const vector = await embedText(m.text);
     await upsertChunk({
-      id: m.moduleId, // Actian rejects non-UUID strings like `module-${id}` — use the numeric moduleId directly
+      id: m.moduleId,
       vector,
       moduleId: m.moduleId,
       topic: m.topic,

@@ -1,8 +1,8 @@
-const { VectorAIClient } = require("@actian/vectorai-client"); // CORRECTED: real npm package is @actian/vectorai-client (verified against docs.vectoraidb.actian.com), not actian-vectorai-js
+const { VectorAIClient } = require("@actian/vectorai-client");
 
 const client = new VectorAIClient(process.env.ACTIAN_HOST || "localhost:6574");
 const COLLECTION = "xr_modules";
-const EMBED_DIM = 768; // text-embedding-004 output size — CONFIRMED via Google docs. Note: text-embedding-004 is being deprecated in favor of gemini-embedding-001/002 (default 3072-dim); fine for now, revisit before long-term use.
+const EMBED_DIM = 768; // gemini-embedding-001 output size (dimension configured in embeddings.js)
 
 async function ensureCollection() {
   const existing = await client.collections.list?.() ?? [];
