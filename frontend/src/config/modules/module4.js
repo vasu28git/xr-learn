@@ -29,11 +29,22 @@ export const module4 = {
   },
   handsOn: {
     task: 'Match the target appearance — adjust the light and material so your sphere looks like the target on the right.',
-    starterCode: `// Adjust light and material properties
-light.intensity = 0.5
-material.color = '#ffffff'
-material.roughness = 0.5
-material.metalness = 0.0`,
+    starterCode: `using UnityEngine;
+
+public class MaterialController : MonoBehaviour
+{
+    public Light sceneLight;
+    public Material sphereMaterial;
+
+    void Start()
+    {
+        // Adjust light and material properties
+        sceneLight.intensity = 0.5f;
+        sphereMaterial.color = Color.white;
+        sphereMaterial.SetFloat("_Roughness", 0.5f);
+        sphereMaterial.SetFloat("_Metallic", 0.0f);
+    }
+}`,
     scene: {
       objects: [
         { id: 'sphere', type: 'sphere', position: [-2, 1.5, 0], color: '#ffffff', size: [1.2, 64, 64] },

@@ -23,11 +23,23 @@ export const module3 = {
   },
   handsOn: {
     task: 'Make box1 and box2 children of the table so that when you move the table, the boxes move with it.',
-    starterCode: `// Make box1 and box2 children of the table
-// Then move the table and see what happens
-scene.setParent(box1, table)
-scene.setParent(box2, table)
-table.position.x = 0`,
+    starterCode: `using UnityEngine;
+
+public class HierarchyController : MonoBehaviour
+{
+    public GameObject table;
+    public GameObject box1;
+    public GameObject box2;
+
+    void Start()
+    {
+        // Make box1 and box2 children of the table
+        // Then move the table and see what happens
+        box1.transform.SetParent(table.transform);
+        box2.transform.SetParent(table.transform);
+        table.transform.position = new Vector3(0f, 0.25f, 0f);
+    }
+}`,
     scene: {
       objects: [
         { id: 'table', type: 'box', position: [0, 0.25, 0], color: '#8866aa', size: [4, 0.5, 2] },

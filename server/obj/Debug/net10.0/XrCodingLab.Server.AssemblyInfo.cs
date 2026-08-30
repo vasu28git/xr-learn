@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("XrCodingLab.Server")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+322b5c90d628b5f33b916b24a95a3bf621b41d48")]
 [assembly: System.Reflection.AssemblyProductAttribute("XrCodingLab.Server")]
 [assembly: System.Reflection.AssemblyTitleAttribute("XrCodingLab.Server")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

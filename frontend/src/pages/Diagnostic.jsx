@@ -12,10 +12,10 @@ export default function Diagnostic() {
   const [error, setError] = useState(null)
   const [validationError, setValidationError] = useState(null)
 
-  const handleOptionChange = (questionId, optionIndex) => {
+  const handleOptionChange = (questionId, optionId) => {
     setAnswers(prev => ({
       ...prev,
-      [questionId]: optionIndex
+      [questionId]: optionId
     }))
     setValidationError(null)
   }
@@ -35,34 +35,40 @@ export default function Diagnostic() {
     setLoading(true)
 
     try {
-      // Group answers by moduleId and count correct
-      const moduleResults = {}
-      
-      diagnosticQuestions.forEach(question => {
-        if (!moduleResults[question.moduleId]) {
-          moduleResults[question.moduleId] = {
-            correct_count: 0,
-            total_count: 0
-          }
-        }
-        
-        moduleResults[question.moduleId].total_count += 1
-        
-        if (answers[question.id] === question.correctIndex) {
-          moduleResults[question.moduleId].correct_count += 1
-        }
-      })
+      // Collect ragTopics for every wrong answer
+      const weakTopics = diagnosticQuestions
+        .filter(q => answers[q.id] !== q.correctOptionId)
+        .map(q => q.ragTopic)
 
-      // Prepare rows for insertion
-      const rows = Object.entries(moduleResults).map(([moduleId, result]) => ({
-        module_id: Number(moduleId),
-        correct_count: result.correct_count,
-        total_count: result.total_count,
-        knows_concept: result.correct_count === result.total_count
-      }))
+      // Match weak topics to module ids via RAG. Non-fatal if it fails —
+      // we still save weak_concept_topics even if matching didn't work.
+      let weakModuleIds = []
+      if (weakTopics.length > 0) {
+        try {
+          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+          const res = await fetch(`${apiUrl}/match-topics`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topics: weakTopics }),
+          })
+          if (res.ok) {
+            const { matches } = await res.json()
+            weakModuleIds = [...new Set(
+              matches.filter(m => m.moduleId).map(m => Number(m.moduleId))
+            )]
+          } else {
+            console.error('match-topics request failed:', res.status)
+          }
+        } catch (matchErr) {
+          console.error('match-topics request threw:', matchErr)
+        }
+      }
 
       // Submit through API client
-      await api.diagnostic.submit(rows)
+      await api.diagnostic.submit({
+        weakTopics,
+        weakModuleIds
+      })
 
       // Clear the diagnostic gate flag
       localStorage.removeItem('show-diagnostic')
@@ -140,7 +146,7 @@ export default function Diagnostic() {
                     Question {index + 1} of {diagnosticQuestions.length}
                   </span>
                   <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
-                    Module {question.moduleId}
+                    Modules {question.modulePair.join(' & ')}
                   </span>
                 </div>
 
@@ -149,11 +155,11 @@ export default function Diagnostic() {
                 </h3>
 
                 <div className="space-y-2.5">
-                  {question.options.map((option, optionIndex) => {
-                    const isChecked = answers[question.id] === optionIndex
+                  {question.options.map((option) => {
+                    const isChecked = answers[question.id] === option.id
                     return (
                       <label 
-                        key={optionIndex}
+                        key={option.id}
                         className={`flex items-start gap-3 p-3.5 rounded-lg border transition-all duration-150 cursor-pointer ${
                           isChecked 
                             ? 'bg-primary/10 border-primary text-on-surface' 
@@ -163,12 +169,12 @@ export default function Diagnostic() {
                         <input
                           type="radio"
                           name={`question-${question.id}`}
-                          value={optionIndex}
+                          value={option.id}
                           checked={isChecked}
-                          onChange={() => handleOptionChange(question.id, optionIndex)}
+                          onChange={() => handleOptionChange(question.id, option.id)}
                           className="mt-0.5 w-4 h-4 accent-primary cursor-pointer"
                         />
-                        <span className="text-xs leading-relaxed font-body-sm">{option}</span>
+                        <span className="text-xs leading-relaxed font-body-sm">{option.text}</span>
                       </label>
                     )
                   })}

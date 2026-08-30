@@ -22,10 +22,21 @@ export const module7 = {
   },
   handsOn: {
     task: 'Place the box behind the wall and make the wall occlude it correctly based on depth.',
-    starterCode: `// Set the box behind the wall to test occlusion.
-// Objects farther away in Z space are hidden behind the wall.
-box.position.z = -2
-wall.position.z = 0`,
+    starterCode: `using UnityEngine;
+
+public class OcclusionController : MonoBehaviour
+{
+    public GameObject box;
+    public GameObject wall;
+
+    void Start()
+    {
+        // Set the box behind the wall to test occlusion.
+        // Objects farther away in Z space are hidden behind the wall.
+        box.transform.position = new Vector3(0f, 1f, -2f);
+        wall.transform.position = new Vector3(0f, 1.5f, 0f);
+    }
+}`,
     scene: {
       objects: [
         { id: 'wall', type: 'box', position: [0, 1.5, 0], color: '#5d6d9c', size: [4, 3, 0.3], isTarget: true },

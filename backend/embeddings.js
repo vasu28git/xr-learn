@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+const { GoogleGenAI } = require("@google/genai");
 
 // CORRECTED (2026-08-30): text-embedding-004 was shut down by Google on
 // 2026-01-14. Replacement model is gemini-embedding-001. Also migrated off
@@ -15,7 +15,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const EMBED_MODEL = "gemini-embedding-001";
 const OUTPUT_DIMENSIONALITY = 768;
 
-export async function embedText(text) {
+async function embedText(text) {
   const response = await ai.models.embedContent({
     model: EMBED_MODEL,
     contents: text,
@@ -23,3 +23,5 @@ export async function embedText(text) {
   });
   return response.embeddings[0].values;
 }
+
+module.exports = { embedText };

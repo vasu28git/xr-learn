@@ -22,11 +22,21 @@ export const module8 = {
   },
   handsOn: {
     task: 'Add a click handler to the box so it changes color when selected and resets when clicked again.',
-    starterCode: `// Add a click handler to make the object interactive.
-box.onClick(function() {
-  // Toggle between blue and red.
-  // Example: box.color = '#ff4444'
-})`,
+    starterCode: `using UnityEngine;
+
+public class SelectController : MonoBehaviour
+{
+    public GameObject box;
+
+    void Start()
+    {
+        // Add a click handler to make the object interactive.
+        // box.OnClick(() => {
+        //   // Toggle between blue and red.
+        //   // Example: box.GetComponent<Renderer>().material.color = Color.red;
+        // });
+    }
+}`,
     scene: {
       objects: [
         { id: 'box', type: 'box', position: [0, 1, 0], color: '#4488ff', size: [1.5, 1.5, 1.5] },

@@ -11,7 +11,11 @@
     "@supabase/supabase-js": "^2.112.4",
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "@actian/vectorai-client": "^1.0.2",
+    "@google/genai": "^2.19.0",
+    "@google/generative-ai": "^0.24.1",
+    "mammoth": "^1.12.2"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"

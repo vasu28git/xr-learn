@@ -1,11 +1,11 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 const ALLOWED_SECTION_TYPES = ["heading", "text", "highlight", "list"];
 
-export async function generateLearningModule({ moduleId, moduleTitle, retrievedContent }) {
+async function generateLearningModule({ moduleId, moduleTitle, retrievedContent }) {
   const prompt = `You are generating personalized theory content for an XR training app module.
 
 Module: ${moduleTitle} (id ${moduleId})
@@ -38,3 +38,5 @@ Rules:
 
   return { sections: validSections };
 }
+
+module.exports = { generateLearningModule };

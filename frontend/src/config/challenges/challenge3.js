@@ -6,13 +6,24 @@ export const challenge3 = {
   xp: 150,
   description: 'Create an emergency alarm effect: set the light color to red and increase its intensity to at least 2.0. Make the alarm box red and highly metallic.',
   hint: 'Set light.intensity to a high value (2.0+) and material.color to a red hex code. Increase metalness for a shiny effect.',
-  starterCode: `// Configure the alarm light
-light.intensity = 0.5f;
+  starterCode: `using UnityEngine;
 
-// Set the alarm box material
-material.color = "#ffffff";
-material.roughness = 0.5f;
-material.metalness = 0.0f;`,
+public class AlarmController : MonoBehaviour
+{
+    public Light alarmLight;
+    public Material alarmMaterial;
+
+    void Start()
+    {
+        // Configure the alarm light
+        alarmLight.intensity = 0.5f;
+        
+        // Set the alarm box material
+        alarmMaterial.color = Color.white;
+        alarmMaterial.SetFloat("_Roughness", 0.5f);
+        alarmMaterial.SetFloat("_Metallic", 0.0f);
+    }
+}`,
   scene: {
     objects: [
       { id: 'alarmBox', type: 'box', position: [0, 1, 0], color: '#ffffff', size: [1.5, 1.5, 1.5] },

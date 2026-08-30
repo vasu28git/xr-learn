@@ -1,18 +1,6 @@
-// server/ingest.js
-//
-// One-time ingestion script. Parses the combined module study-resource doc
-// (tagged with <!-- MODULE_ID: N | TOPIC: slug --> markers immediately above
-// each "Module N — Title" heading), embeds each module's full text via
-// Gemini, and upserts one vector per module into Actian VectorAI DB.
-//
-// Usage:
-//   node server/ingest.js <path-to-tagged-docx>
-//
-// Requires: mammoth (npm install mammoth), GEMINI_API_KEY, ACTIAN_HOST (optional).
-
-import mammoth from "mammoth";
-import { embedText } from "./embeddings.js";
-import { ensureCollection, upsertChunk } from "./vectorClient.js";
+const mammoth = require("mammoth");
+const { embedText } = require("./embeddings");
+const { ensureCollection, upsertChunk } = require("./vectorClient");
 
 const MARKER_REGEX = /<!--\s*MODULE_ID:\s*(\d+)\s*\|\s*TOPIC:\s*([a-z0-9-]+)\s*-->/g;
 
@@ -72,7 +60,7 @@ function splitIntoModules(fullText) {
 
 async function ingest(docxPath) {
   if (!docxPath) {
-    console.error("Usage: node server/ingest.js <path-to-tagged-docx>");
+    console.error("Usage: node backend/ingest.js <path-to-tagged-docx>");
     process.exit(1);
   }
 

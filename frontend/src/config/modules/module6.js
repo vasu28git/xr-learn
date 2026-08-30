@@ -32,21 +32,36 @@ export const module6 = {
   },
   handsOn: {
     task: 'Build your own XR scene. It must include: at least 2 objects with correct positions, a parent-child relationship, custom lighting, and one interactive element.',
-    starterCode: `// Position box1, box2 and sphere1 in world space
-box1.transform.position = new Vector3(0f, 1f, 0f);
-box2.transform.position = new Vector3(2f, 1f, 0f);
-sphere1.transform.position = new Vector3(-2f, 1f, 2f);
+    starterCode: `using UnityEngine;
 
-// Create hierarchy — make box2 a child of box1
-box2.transform.parent = box1.transform;
+public class XRSceneController : MonoBehaviour
+{
+    public GameObject box1;
+    public GameObject box2;
+    public GameObject sphere1;
+    public Light sceneLight;
 
-// Adjust custom point light intensity
-light.intensity = 1.2f;
-
-// Register a click handler using C# events
-box1.OnClick(() => {
-  box1.GetComponent<Renderer>().material.color = Color.green;
-});`,
+    void Start()
+    {
+        // Position box1, box2 and sphere1 in world space
+        box1.transform.position = new Vector3(0f, 1f, 0f);
+        box2.transform.position = new Vector3(2f, 1f, 0f);
+        sphere1.transform.position = new Vector3(-2f, 1f, 2f);
+        
+        // Create hierarchy — make box2 a child of box1
+        box2.transform.parent = box1.transform;
+        
+        // Adjust custom point light intensity
+        sceneLight.intensity = 1.2f;
+        
+        // Register a click handler using C# events (mock)
+        /*
+        box1.OnClick(() => {
+          box1.GetComponent<Renderer>().material.color = Color.green;
+        });
+        */
+    }
+}`,
     scene: {
       objects: [
         { id: 'box1', type: 'box', position: [0, 0.5, 0], color: '#4488ff', size: [1, 1, 1] },

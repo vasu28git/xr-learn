@@ -1,5 +1,5 @@
-import { searchByVector } from "./vectorClient.js";
-import { embedText } from "./embeddings.js";
+const { searchByVector } = require("./vectorClient");
+const { embedText } = require("./embeddings");
 
 /**
  * Retrieves relevant grounding content for a given module/topic pair via
@@ -16,7 +16,7 @@ import { embedText } from "./embeddings.js";
  *          or "" if nothing was found. Falls back to the top-K results
  *          across all modules if none match the requested moduleId exactly.
  */
-export async function retrieveModuleContent(moduleId, topic, topK = 5) {
+async function retrieveModuleContent(moduleId, topic, topK = 5) {
   if (!moduleId || !topic) {
     throw new Error("retrieveModuleContent: moduleId and topic are required");
   }
@@ -44,30 +44,59 @@ export async function retrieveModuleContent(moduleId, topic, topK = 5) {
  * @param {number} topK
  * @returns {Promise<{ moduleId: number, score: number } | null>}
  */
-export async function matchModuleForTopic(topic, topK = 1) {
+async function matchModuleForTopic(topic, topK = 1) {
   if (!topic || typeof topic !== "string") {
     throw new Error("matchModuleForTopic: topic must be a non-empty string");
   }
 
-  const queryVector = await embedText(topic);
-  const results = await searchByVector(queryVector, topK);
-
-  if (!results || results.length === 0) {
+  const runKeywordFallback = (t) => {
+    const topicLower = t.toLowerCase();
+    if (topicLower.includes("scene graph") || topicLower.includes("renderer") || topicLower.includes("hierarchy")) {
+      return { moduleId: 1, score: 1.0 };
+    }
+    if (topicLower.includes("coordinate") || topicLower.includes("reference space") || topicLower.includes("transform")) {
+      return { moduleId: 3, score: 1.0 };
+    }
+    if (topicLower.includes("shader") || topicLower.includes("stereo") || topicLower.includes("performance")) {
+      return { moduleId: 5, score: 1.0 };
+    }
+    if (topicLower.includes("physics") || topicLower.includes("collision") || topicLower.includes("constraint") || topicLower.includes("gravity")) {
+      return { moduleId: 7, score: 1.0 };
+    }
+    if (topicLower.includes("multi-user") || topicLower.includes("sync") || topicLower.includes("network") || topicLower.includes("latency")) {
+      return { moduleId: 9, score: 1.0 };
+    }
     return null;
+  };
+
+  if (!process.env.GEMINI_API_KEY) {
+    return runKeywordFallback(topic);
   }
 
-  const best = results[0];
-  return {
-    moduleId: best.payload?.moduleId,
-    score: best.score,
-  };
+  try {
+    const queryVector = await embedText(topic);
+    const results = await searchByVector(queryVector, topK);
+
+    if (!results || results.length === 0) {
+      return runKeywordFallback(topic);
+    }
+
+    const best = results[0];
+    return {
+      moduleId: best.payload?.moduleId,
+      score: best.score,
+    };
+  } catch (err) {
+    console.warn("RAG search failed, falling back to keyword matching:", err.message);
+    return runKeywordFallback(topic);
+  }
 }
 
 /**
  * Batch version — matches multiple weak topics to modules in one call.
  * @param {string[]} topics
  */
-export async function matchModulesForTopics(topics) {
+async function matchModulesForTopics(topics) {
   const results = [];
   for (const topic of topics) {
     const match = await matchModuleForTopic(topic);
@@ -79,3 +108,9 @@ export async function matchModulesForTopics(topics) {
   }
   return results;
 }
+
+module.exports = {
+  retrieveModuleContent,
+  matchModuleForTopic,
+  matchModulesForTopics
+};

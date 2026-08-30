@@ -6,14 +6,25 @@ export const challenge2 = {
   xp: 200,
   description: 'Build a simple solar system: make the moon orbit the planet by parenting it, then position the planet away from the sun.',
   hint: 'Use transform.parent to make the moon a child of the planet. Then move the planet — the moon should follow.',
-  starterCode: `// The sun is at the center (0, 0, 0)
-// Move the planet to orbit distance and parent the moon to it
+  starterCode: `using UnityEngine;
 
-planet.transform.position = new Vector3(0f, 0f, 0f);
-moon.transform.position = new Vector3(0f, 0f, 0f);
+public class OrbitController : MonoBehaviour
+{
+    public GameObject planet;
+    public GameObject moon;
 
-// Make the moon orbit the planet
-// moon.transform.parent = ???`,
+    void Start()
+    {
+        // The sun is at the center (0, 0, 0)
+        // Move the planet to orbit distance and parent the moon to it
+        
+        planet.transform.position = new Vector3(0f, 0f, 0f);
+        moon.transform.position = new Vector3(0f, 0f, 0f);
+        
+        // Make the moon orbit the planet
+        // moon.transform.parent = ???
+    }
+}`,
   scene: {
     objects: [
       { id: 'sun', type: 'sphere', position: [0, 1, 0], color: '#ffcc00', size: [1.2, 32, 32] },

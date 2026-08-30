@@ -20,10 +20,31 @@ const allModules = [module1, module2, module3, module4, module5, module6, module
 export default function Dashboard() {
   const { user, signOut } = useAuth()
   const [progress, setProgress] = useState([])
+  const [diagnosticResults, setDiagnosticResults] = useState({})
   const [loadingProgress, setLoadingProgress] = useState(true)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [sessionTime, setSessionTime] = useState('00:00:00')
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
+  const [showAllModules, setShowAllModules] = useState(false)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+
+  const toggleTheme = () => {
+    const nextDark = !isDark
+    setIsDark(nextDark)
+    if (nextDark) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }
 
   useEffect(() => {
     if (!user) return
@@ -32,8 +53,16 @@ export default function Dashboard() {
       try {
         const data = await api.progress.getAll()
         setProgress(data)
+
+        const diagRes = await api.diagnostic.check()
+        const diagnostic = {}
+        const weakIds = diagRes.weakModuleIds || []
+        for (let i = 1; i <= 10; i++) {
+          diagnostic[i] = !weakIds.includes(i)
+        }
+        setDiagnosticResults(diagnostic)
       } catch (error) {
-        console.error('Error fetching progress:', error)
+        console.error('Error fetching progress or diagnostic:', error)
       } finally {
         setLoadingProgress(false)
       }
@@ -42,20 +71,11 @@ export default function Dashboard() {
     fetchProgress()
   }, [user])
 
-  // Simple session timer
-  useEffect(() => {
-    let seconds = 0
-    const interval = setInterval(() => {
-      seconds++
-      const hrs = String(Math.floor(seconds / 3600)).padStart(2, '0')
-      const mins = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')
-      const secs = String(seconds % 60).padStart(2, '0')
-      setSessionTime(`${hrs}:${mins}:${secs}`)
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [])
+  const visibleModules = allModules.filter(
+    (mod) => mod.id === 11 || diagnosticResults[mod.id] !== true
+  )
 
-  const completedCount = getCompletedCount(progress)
+  const completedCount = getCompletedCount(progress, diagnosticResults)
   const percentComplete = Math.round((completedCount / allModules.length) * 100)
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Developer'
 
@@ -64,344 +84,273 @@ export default function Dashboard() {
     navigate('/')
   }
 
+  const getModuleImage = (id) => {
+    switch(id) {
+      case 1: return "/3dblock.png";
+      case 2: return "/vrheadset.png";
+      case 3: return "/3dobj.png";
+      case 4: return "/3dmountain.png";
+      default: return "/vrheadset.png";
+    }
+  }
+
+  const modulesToRender = showAllModules ? allModules : visibleModules.slice(0, 4)
+
   return (
-    <div className="font-body-md h-screen overflow-hidden flex flex-col bg-surface-container-lowest text-on-surface">
-      {/* TopNavBar */}
-      <nav className="bg-surface border-b border-outline-variant flex justify-between items-center w-full px-8 h-16 z-50 shrink-0">
-        <div className="flex items-center gap-6">
-          <button 
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-on-surface-variant hover:text-primary transition-colors cursor-pointer p-1 rounded hover:bg-surface-container-highest"
-          >
-            <span className="material-symbols-outlined">menu</span>
-          </button>
-          <span className="font-headline-md text-xl font-bold text-primary tracking-tight">Multiverse 3D</span>
-          
-          <div className="hidden md:flex gap-6 items-center h-full">
-            <span className="text-primary border-b-2 border-primary pb-1 flex flex-col h-full justify-center text-xs font-semibold uppercase tracking-wider cursor-pointer" onClick={() => navigate('/dashboard')}>Dashboard</span>
-            <span className="text-on-surface-variant hover:text-on-surface transition-colors duration-200 cursor-pointer flex flex-col h-full justify-center text-xs font-semibold uppercase tracking-wider" onClick={() => navigate('/module/1')}>Learning</span>
-            <span className="text-on-surface-variant hover:text-on-surface transition-colors duration-200 cursor-pointer flex flex-col h-full justify-center text-xs font-semibold uppercase tracking-wider" onClick={() => navigate('/training')}>Training</span>
-            <span className="text-on-surface-variant hover:text-on-surface transition-colors duration-200 cursor-pointer flex flex-col h-full justify-center text-xs font-semibold uppercase tracking-wider" onClick={() => navigate('/debugging')}>Debugging</span>
+    <div className="font-body-md min-h-screen flex flex-col bg-surface-container-lowest text-on-surface transition-colors duration-300">
+      
+      {/* Redesigned Navigation Bar */}
+      <nav className="bg-surface border-b border-outline-variant/45 flex justify-between items-center w-full px-6 lg:px-8 h-16 z-50 shrink-0 sticky top-0 transition-colors duration-300 shadow-sm">
+        <div className="flex items-center gap-8">
+          {/* Logo */}
+          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate('/dashboard')}>
+            <div className="text-[#6366f1] flex items-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 22V12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 12L2 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 12L22 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 17L12 12L22 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 2L12 12" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 2" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <span className="font-headline-md font-bold text-sm tracking-tight text-on-surface">
+              <span className="text-[#6366f1]">Multiverse</span> 3D
+            </span>
           </div>
+          
+          {/* Center Tabs Removed */}
         </div>
 
+        {/* Right side controls */}
         <div className="flex items-center gap-4">
-          <div className="relative hidden sm:block">
-            <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
-            <input className="bg-surface-container-lowest border border-outline-variant rounded-md py-1 pl-8 pr-3 text-xs text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none w-48 transition-all" placeholder="Search..." type="text"/>
-          </div>
-          <button className="text-on-surface-variant hover:text-primary transition-colors cursor-pointer relative p-1 rounded hover:bg-surface-container-highest">
-            <span className="material-symbols-outlined">notifications</span>
-            <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-primary rounded-full"></span>
+          <button 
+            onClick={toggleTheme}
+            className="text-on-surface-variant hover:text-primary transition-colors cursor-pointer p-2 rounded-full hover:bg-surface-container-high flex items-center justify-center"
+            title="Toggle theme"
+          >
+            {isDark ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="5" />
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            )}
           </button>
-          <button className="text-on-surface-variant hover:text-primary transition-colors cursor-pointer p-1 rounded hover:bg-surface-container-highest" onClick={handleLogout}>
-            <span className="material-symbols-outlined">logout</span>
+          
+          <button 
+            onClick={handleLogout}
+            className="text-on-surface-variant hover:text-[#6366f1] transition-colors cursor-pointer p-2 rounded-full hover:bg-surface-container-high flex items-center justify-center"
+            title="Sign Out"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+            </svg>
           </button>
-          <div className="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant overflow-hidden">
-            <img alt="User profile avatar" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3VS3anHb5C94iA6JnbNXJITqEogFESS3Klr0ouQjGv-VspRFGfmabm9AlsL_8ilNnl8nd8Imxq0PmMtYu_e3VtWbj2ZxpLdCWIxYgGm4P7jN0FVDHDsLLFDYvn3orderFPWLzTdO40koOYY12Q1Jo-53qKxMoT7-JcWbRN0ZASgD7QFMnuLXeHAapmb3ym_EHc4J-qHWewjOZIZ8Ons809mTl55vj_BUT4u37_v9zS_qSyNKxJjqRKQ"/>
+
+          <div className="w-8 h-8 rounded-full border border-outline-variant/60 overflow-hidden select-none">
+            <img 
+              alt="User profile avatar" 
+              className="w-full h-full object-cover" 
+              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
+            />
           </div>
         </div>
       </nav>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* SideNavBar */}
-        <aside className={`${sidebarOpen ? 'flex' : 'hidden'} xl:flex bg-surface-container-lowest border-r border-outline-variant flex-col h-full w-64 z-40 shrink-0 transition-all duration-300`}>
-          <div className="p-4 border-b border-outline-variant flex items-center gap-3">
-            <div className="w-10 h-10 rounded bg-surface-container-high flex items-center justify-center border border-outline-variant">
-              <span className="material-symbols-outlined text-primary">rocket_launch</span>
-            </div>
-            <div>
-              <h2 className="font-headline-sm text-sm text-primary font-semibold">Multiverse Engine</h2>
-              <p className="font-code-sm text-[10px] text-on-surface-variant">v4.2.0-stable</p>
-            </div>
-          </div>
-          
-          <div className="flex-1 py-4 flex flex-col gap-1 overflow-y-auto">
-            <div className="px-3">
-              <button className="w-full bg-primary/10 text-primary border-l-2 border-primary px-4 py-2 flex items-center gap-3 text-left font-code-sm text-xs hover:bg-surface-container-highest transition-all duration-150 cursor-pointer">
-                <span className="material-symbols-outlined text-sm">account_tree</span>
-                Hierarchy
-              </button>
-            </div>
-            <div className="px-3">
-              <button className="w-full text-on-surface-variant hover:bg-surface-container-high border-l-2 border-transparent px-4 py-2 flex items-center gap-3 text-left font-code-sm text-xs hover:bg-surface-container-highest transition-all duration-150 cursor-pointer">
-                <span className="material-symbols-outlined text-sm">folder_open</span>
-                Assets
-              </button>
-            </div>
-            <div className="px-3">
-              <button className="w-full text-on-surface-variant hover:bg-surface-container-high border-l-2 border-transparent px-4 py-2 flex items-center gap-3 text-left font-code-sm text-xs hover:bg-surface-container-highest transition-all duration-150 cursor-pointer">
-                <span className="material-symbols-outlined text-sm">tune</span>
-                Inspector
-              </button>
-            </div>
-            <div className="px-3">
-              <button className="w-full text-on-surface-variant hover:bg-surface-container-high border-l-2 border-transparent px-4 py-2 flex items-center gap-3 text-left font-code-sm text-xs hover:bg-surface-container-highest transition-all duration-150 cursor-pointer">
-                <span className="material-symbols-outlined text-sm">terminal</span>
-                Console
-              </button>
-            </div>
-          </div>
-          
-          <div className="p-4 border-t border-outline-variant flex flex-col gap-2">
-            <button className="w-full bg-primary text-on-primary font-headline-sm text-xs py-2 rounded font-bold hover:bg-primary-fixed transition-colors">
-              Launch Simulator
-            </button>
-          </div>
-          
-          <div className="pb-4 flex flex-col gap-1">
-            <div className="px-3">
-              <button className="w-full text-on-surface-variant hover:bg-surface-container-high border-l-2 border-transparent px-4 py-2 flex items-center gap-3 text-left font-code-sm text-xs hover:bg-surface-container-highest transition-all duration-150 cursor-pointer">
-                <span className="material-symbols-outlined text-sm">description</span>
-                Docs
-              </button>
-            </div>
-          </div>
-        </aside>
+      {/* Main Container */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-6 py-10 flex flex-col gap-10">
+        
+        {/* Welcome Section */}
+        <section className="flex flex-col gap-2">
+          <h1 className="font-display-lg text-3xl font-bold text-on-surface tracking-tight flex items-center gap-2">
+            Welcome back, {userName}! <span className="animate-bounce">👋</span>
+          </h1>
+          <p className="font-body-sm text-sm text-on-surface-variant">Choose a mode to continue your XR learning journey.</p>
+        </section>
 
-        {/* Main Workspace */}
-        <main className="flex-1 overflow-y-auto bg-surface-container-lowest p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 content-start">
-          {/* Welcome Header */}
-          <header className="lg:col-span-12 flex justify-between items-end pb-4 border-b border-outline-variant">
-            <div>
-              <h1 className="font-display-lg text-2xl font-bold text-primary tracking-tight">System Overview</h1>
-              <p className="font-body-md text-xs text-on-surface-variant mt-2">
-                Developer profile: <span className="text-primary font-semibold">{userName}</span> | System status:{' '}
-                <span className="text-secondary inline-flex items-center gap-1 font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-secondary inline-block"></span>Optimal
-                </span>
-              </p>
-            </div>
-            <div className="hidden sm:flex gap-2">
-              <div className="text-right px-4 py-2 glass-panel rounded-lg">
-                <p className="font-label-caps text-[9px] text-on-surface-variant uppercase tracking-wider">SESSION TIME</p>
-                <p className="font-code-md text-xs text-primary">{sessionTime}</p>
-              </div>
-            </div>
-          </header>
-
-          {/* Core Modules List (Left Panel in Dashboard) */}
-          <div className="lg:col-span-8 flex flex-col gap-4">
-            {/* Learning Status Overview */}
-            <article className="glass-panel rounded-xl p-6 flex flex-col justify-between group hover:border-primary/30 transition-colors relative overflow-hidden shrink-0">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
-              <div className="flex justify-between items-start mb-4 z-10">
-                <div>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="material-symbols-outlined text-primary text-xl">school</span>
-                    <h2 className="font-headline-sm text-sm text-primary tracking-wide uppercase font-semibold">Course Progress</h2>
-                  </div>
-                  <p className="font-body-sm text-xs text-on-surface-variant max-w-md">Learn XR concepts through structured modules and interactive 3D simulations.</p>
+        {/* Choose Your Learning Mode Section */}
+        <section className="flex flex-col gap-6">
+          <h2 className="text-lg font-bold tracking-tight text-on-surface">Choose Your Learning Mode</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+            
+            {/* Training Card */}
+            <article className="bg-surface border border-outline-variant/40 rounded-3xl p-6 lg:p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-300">
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 mb-6">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path d="M22 10v6M2 10l10-5 10 5-10 5zM6 12.5V16a6 6 0 0 0 12 0v-3.5" />
+                  </svg>
                 </div>
-                <div className="font-code-md text-xs text-primary bg-primary/10 px-3 py-1 rounded border border-primary/20">
-                  {completedCount} / {allModules.length} Modules
+                <h3 className="text-lg font-bold text-on-surface mb-2">Training Module</h3>
+                <p className="text-xs text-on-surface-variant mb-6 leading-relaxed">
+                  Learn step-by-step with interactive lessons and hands-on XR examples.
+                </p>
+                <div className="relative rounded-2xl overflow-hidden mb-6 aspect-[4/3] bg-surface-container-lowest border border-outline-variant/20 flex items-center justify-center">
+                  <img 
+                    src="/training.png" 
+                    alt="Training Illustration" 
+                    className="w-full h-full object-contain p-6 select-none pointer-events-none"
+                  />
                 </div>
               </div>
-              <div className="z-10">
-                <div className="w-full bg-surface-container-highest rounded-full h-1.5 mb-2">
-                  <div className="bg-primary h-1.5 rounded-full transition-all duration-300" style={{ width: `${percentComplete}%` }}></div>
-                </div>
-                <span className="font-code-sm text-[10px] text-on-surface-variant">{percentComplete}% complete</span>
-              </div>
+              <button 
+                onClick={() => navigate('/training')} 
+                className="w-fit border border-[#6366f1]/30 hover:border-[#6366f1] text-[#6366f1] hover:bg-[#6366f1]/5 font-semibold text-xs py-2.5 px-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <span>Start Learning</span>
+                <span className="text-sm">→</span>
+              </button>
             </article>
 
-            {/* Training and Debugging Bento Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              
-              {/* Training Card */}
-              <article className="glass-panel rounded-xl p-5 flex flex-col justify-between group hover:border-secondary/40 transition-colors bg-surface-container-low/30">
-                <div className="flex justify-between items-start mb-4">
+            {/* Debugging Card */}
+            <article className="bg-surface border border-outline-variant/40 rounded-3xl p-6 lg:p-8 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-300">
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 mb-6">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="6" />
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-on-surface mb-2">Debugging Module</h3>
+                <p className="text-xs text-on-surface-variant mb-6 leading-relaxed">
+                  Find and fix errors in XR scenes. Improve your problem-solving skills.
+                </p>
+                <div className="relative rounded-2xl overflow-hidden mb-6 aspect-[4/3] bg-surface-container-lowest border border-outline-variant/20 flex items-center justify-center">
+                  <img 
+                    src="/debug.png" 
+                    alt="Debugging Illustration" 
+                    className="w-full h-full object-contain p-6 select-none pointer-events-none"
+                  />
+                </div>
+              </div>
+              <button 
+                onClick={() => navigate('/debugging')} 
+                className="w-fit border border-red-500/30 hover:border-red-500/80 text-red-500 hover:bg-red-500/5 font-semibold text-xs py-2.5 px-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <span>Start Debugging</span>
+                <span className="text-sm">→</span>
+              </button>
+            </article>
+
+
+
+          </div>
+        </section>
+
+        {/* Learning Modules Section */}
+        <section id="learning-modules-section" className="flex flex-col gap-6 border-t border-outline-variant/30 pt-10">
+          <div className="flex justify-between items-center w-full">
+            <h2 className="text-lg font-bold tracking-tight text-on-surface">Learning Modules</h2>
+            <button 
+              onClick={() => setShowAllModules(!showAllModules)} 
+              className="text-[#6366f1] hover:underline font-bold text-xs cursor-pointer transition-colors"
+            >
+              {showAllModules ? 'Show Less' : 'View all'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {modulesToRender.map((mod) => {
+              const status = getModuleStatus(progress, mod.id, diagnosticResults)
+              const isLocked = status === 'locked'
+              const isCompleted = status === 'completed'
+              const percent = isCompleted ? 100 : status === 'locked' ? 0 : 35 // Visual progress values representing stage
+
+              return (
+                <div 
+                  key={mod.id} 
+                  className={`bg-surface border border-outline-variant/40 rounded-3xl p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-300 ${isLocked ? 'opacity-60' : ''}`}
+                >
                   <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="material-symbols-outlined text-secondary text-lg">model_training</span>
-                      <h2 className="font-headline-sm text-xs font-semibold text-secondary tracking-wide uppercase">Training Arena</h2>
-                    </div>
-                    <p className="font-body-sm text-[11px] text-on-surface-variant leading-relaxed">Practice C# XR logic and solve interactive problems.</p>
-                  </div>
-                </div>
-                <div>
-                  <button 
-                    onClick={() => navigate('/training')}
-                    className="w-full border border-outline-variant text-on-surface font-headline-sm text-xs py-2 rounded hover:bg-surface-container-highest transition-colors flex items-center justify-center gap-1.5 cursor-pointer font-bold bg-surface-container-lowest"
-                  >
-                    Start Training
-                    <span className="material-symbols-outlined text-sm">play_arrow</span>
-                  </button>
-                </div>
-              </article>
-
-              {/* Debugging Card */}
-              <article className="glass-panel rounded-xl p-5 flex flex-col justify-between group hover:border-error/40 transition-colors bg-surface-container-low/30">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="material-symbols-outlined text-error text-lg">bug_report</span>
-                      <h2 className="font-headline-sm text-xs font-semibold text-error tracking-wide uppercase">Debugging Hub</h2>
-                    </div>
-                    <p className="font-body-sm text-[11px] text-on-surface-variant leading-relaxed">Fix compilation errors and malfunctioning scene components.</p>
-                  </div>
-                </div>
-                <div>
-                  <button 
-                    onClick={() => navigate('/debugging')}
-                    className="w-full border border-outline-variant text-on-surface font-headline-sm text-xs py-2 rounded hover:bg-surface-container-highest transition-colors flex items-center justify-center gap-1.5 cursor-pointer font-bold bg-surface-container-lowest"
-                  >
-                    Start Debugging
-                    <span className="material-symbols-outlined text-sm">terminal</span>
-                  </button>
-                </div>
-              </article>
-
-            </div>
-
-            {/* Modules Grid Header */}
-            <div className="border-t border-outline-variant/30 pt-4 mt-2">
-              <h3 className="font-headline-sm text-xs font-bold text-primary uppercase tracking-wider mb-2">Learning Curriculum</h3>
-            </div>
-
-            {/* Modules Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {allModules.map((mod) => {
-                const status = getModuleStatus(progress, mod.id)
-                const isLocked = status === 'locked'
-                const isCompleted = status === 'completed'
-
-                return (
-                  <div 
-                    key={mod.id} 
-                    className={`glass-panel rounded-xl p-5 flex flex-col justify-between hover:border-primary/40 transition-colors relative overflow-hidden ${isLocked ? 'opacity-50' : ''}`}
-                  >
+                    {/* Header */}
                     <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-code-sm text-[10px] text-primary uppercase font-bold tracking-wider">Module {mod.id}</span>
-                          {isCompleted && (
-                            <span className="bg-secondary/15 text-secondary border border-secondary/25 rounded px-1.5 py-0.5 text-[9px] font-semibold flex items-center gap-0.5">
-                              <span className="material-symbols-outlined text-[10px]">done</span>Completed
-                            </span>
-                          )}
-                          {!isLocked && !isCompleted && (
-                            <span className="bg-primary/15 text-primary border border-primary/25 rounded px-1.5 py-0.5 text-[9px] font-semibold">
-                              Available
-                            </span>
-                          )}
-                          {isLocked && (
-                            <span className="bg-outline-variant/20 text-on-surface-variant border border-outline-variant/35 rounded px-1.5 py-0.5 text-[9px] font-semibold flex items-center gap-0.5">
-                              <span className="material-symbols-outlined text-[10px]">lock</span>Locked
-                            </span>
-                          )}
-                        </div>
-                        <h3 className="font-headline-sm text-sm text-on-surface font-semibold">{mod.title}</h3>
+                      <span className="w-8 h-8 rounded-full bg-purple-500/10 text-[#6366f1] font-bold text-xs flex items-center justify-center">
+                        {String(mod.id).padStart(2, '0')}
+                      </span>
+                      {isCompleted ? (
+                        <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-full px-2.5 py-0.5 text-[9px] font-semibold flex items-center gap-0.5 select-none">
+                          Done
+                        </span>
+                      ) : isLocked ? (
+                        <span className="bg-outline-variant/20 text-on-surface-variant border border-outline-variant/30 rounded-full px-2.5 py-0.5 text-[9px] font-semibold flex items-center gap-0.5 select-none">
+                          Locked
+                        </span>
+                      ) : (
+                        <span className="bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 rounded-full px-2.5 py-0.5 text-[9px] font-semibold select-none">
+                          Active
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Image */}
+                    <div className="relative rounded-2xl overflow-hidden mb-4 aspect-[16/10] bg-surface-container-lowest border border-outline-variant/20 flex items-center justify-center">
+                      <img 
+                        src={getModuleImage(mod.id)} 
+                        alt={mod.title} 
+                        className={`w-full h-full object-contain p-4 select-none pointer-events-none ${isLocked ? 'grayscale opacity-75' : ''}`}
+                      />
+                    </div>
+
+                    {/* Meta info */}
+                    <h3 className="font-bold text-sm text-on-surface mb-1 leading-snug line-clamp-1">{mod.title}</h3>
+                    <p className="text-[11px] text-on-surface-variant mb-6 line-clamp-2 leading-relaxed">
+                      {mod.theory.sections[0]?.content || 'Get started learning building 3D environments on the web.'}
+                    </p>
+                  </div>
+
+                  {/* Progress & Action */}
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <div className="w-full bg-surface-container-highest rounded-full h-1">
+                        <div className="bg-[#6366f1] h-1 rounded-full transition-all duration-300" style={{ width: `${percent}%` }}></div>
                       </div>
+                      <span className="text-[9px] font-bold text-on-surface-variant">{percent}% complete</span>
                     </div>
-                    <div>
-                      <p className="font-body-sm text-xs text-on-surface-variant mb-4 line-clamp-2">{mod.theory.sections[0]?.content || mod.handsOn.starterCode}</p>
-                      
-                      <button 
-                        disabled={isLocked}
-                        onClick={() => {
-                          if (!isLocked) navigate(`/module/${mod.id}`)
-                        }}
-                        className={`w-full font-headline-sm text-xs py-2 rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-                          isCompleted
-                            ? 'bg-surface-container-highest hover:bg-surface-bright text-on-surface border border-outline-variant'
-                            : isLocked
-                            ? 'bg-surface-container-low text-on-surface-variant border border-outline-variant/20'
-                            : 'bg-primary hover:bg-primary-fixed text-on-primary font-bold'
-                        }`}
-                      >
-                        {isCompleted ? (
-                          <>
-                            <span>Review Module</span>
-                            <span className="material-symbols-outlined text-sm">refresh</span>
-                          </>
-                        ) : isLocked ? (
-                          <>
-                            <span>Prerequisite Required</span>
-                            <span className="material-symbols-outlined text-sm">lock</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>Enter Workspace</span>
-                            <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
+
+                    <button 
+                      disabled={isLocked}
+                      onClick={() => {
+                        if (!isLocked) navigate(`/module/${mod.id}`)
+                      }}
+                      className={`w-full font-bold text-xs py-2.5 rounded-xl transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 ${
+                        isCompleted
+                          ? 'bg-surface-container-highest hover:bg-surface-bright text-on-surface border border-outline-variant'
+                          : isLocked
+                          ? 'bg-surface-container-low text-on-surface-variant border border-outline-variant/20 cursor-not-allowed'
+                          : 'bg-[#6366f1] hover:bg-[#5053e1] text-white shadow-md shadow-[#6366f1]/20'
+                      }`}
+                    >
+                      {isCompleted ? (
+                        <span>Review Workspace</span>
+                      ) : isLocked ? (
+                        <span>Locked</span>
+                      ) : (
+                        <span>Resume Course</span>
+                      )}
+                    </button>
                   </div>
-                )
-              })}
-            </div>
+                </div>
+              )
+            })}
           </div>
 
-          {/* Sidebar / Stats & Activity (Right Panel in Dashboard) */}
-          <div className="lg:col-span-4 flex flex-col gap-4">
-            {/* Learning Stats */}
-            <section className="glass-panel rounded-xl p-5 shrink-0">
-              <h3 className="font-headline-sm text-xs font-semibold text-on-surface border-b border-outline-variant pb-2 mb-4 flex items-center gap-2">
-                <span className="material-symbols-outlined text-on-surface-variant text-sm">monitoring</span>
-                Telemetry
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <p className="font-label-caps text-[9px] text-on-surface-variant uppercase tracking-wider mb-1">TOTAL RESOLVED</p>
-                  <p className="font-code-md text-2xl font-bold text-secondary">{completedCount} <span className="text-xs text-on-surface-variant">/ {allModules.length} modules</span></p>
-                </div>
-                <div className="p-3 bg-surface-container-lowest border border-outline-variant rounded-lg">
-                  <p className="font-label-caps text-[9px] text-on-surface-variant uppercase tracking-wider mb-1.5">CURRENT TASK</p>
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0">
-                      <span className="font-code-sm text-primary font-bold text-[10px]">3D</span>
-                    </div>
-                    <div>
-                      <h4 className="font-headline-sm text-xs text-on-surface font-semibold">
-                        {allModules[completedCount]?.title || 'All Completed!'}
-                      </h4>
-                      <p className="font-body-sm text-[9px] text-on-surface-variant">
-                        {allModules[completedCount] ? `Module ${allModules[completedCount].id}` : 'Nice job!'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Recent Console Logs */}
-            <section className="glass-panel rounded-xl p-5 flex-1 flex flex-col min-h-[200px]">
-              <h3 className="font-headline-sm text-xs font-semibold text-on-surface border-b border-outline-variant pb-2 mb-4 flex items-center gap-2">
-                <span className="material-symbols-outlined text-on-surface-variant text-sm">history</span>
-                Simulation Feed
-              </h3>
-              <div className="font-code-sm text-[11px] space-y-3 text-on-surface-variant flex-1 overflow-y-auto">
-                <div className="flex gap-2">
-                  <span className="text-secondary">[SYS]</span>
-                  <span>Multiverse Engine v4.2.0 initialized.</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="text-primary">[LOG]</span>
-                  <span>Connection secured to local Express API server.</span>
-                </div>
-                {completedCount > 0 ? (
-                  <div className="flex gap-2">
-                    <span className="text-secondary">[SYS]</span>
-                    <span>Verified {completedCount} completed module(s).</span>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <span className="text-tertiary-container">[AI]</span>
-                    <span>Ready to initialize first learning sandbox!</span>
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <span className="text-primary">[LOG]</span>
-                  <span>Welcome to the workspace. Happy coding!</span>
-                </div>
-              </div>
-            </section>
+          <div className="flex justify-center mt-4">
+            <button 
+              onClick={() => setShowAllModules(!showAllModules)}
+              className="border border-outline-variant hover:border-[#6366f1] text-on-surface hover:text-[#6366f1] font-semibold text-xs py-3 px-6 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer bg-surface"
+            >
+              <span>{showAllModules ? 'Show Less Modules' : 'Explore All Modules'}</span>
+              <span className="text-sm">→</span>
+            </button>
           </div>
-        </main>
-      </div>
+        </section>
+
+      </main>
     </div>
   )
 }

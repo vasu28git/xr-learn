@@ -22,13 +22,23 @@ export const module9 = {
   },
   handsOn: {
     task: 'Use the controller stand-in to grab a box, move it with the pointer, and release it at a valid position.',
-    starterCode: `// Simulate a tracked controller with grab/release actions.
-// Move the controller to pick up the box, then release it.
-controller.position.x = 0
-controller.position.y = 1
-controller.position.z = 0
-controller.grab(box)
-controller.release(box)`,
+    starterCode: `using UnityEngine;
+
+public class HandController : MonoBehaviour
+{
+    public GameObject controller;
+    public GameObject box;
+
+    void Start()
+    {
+        // Simulate a tracked controller with grab/release actions.
+        // Move the controller to pick up the box, then release it.
+        controller.transform.position = new Vector3(0f, 1f, 0f);
+        
+        // controller.GetComponent<Grabber>().Grab(box);
+        // controller.GetComponent<Grabber>().Release(box);
+    }
+}`,
     scene: {
       objects: [
         { id: 'controller', type: 'box', position: [0, 1, 0], color: '#b39ddb', size: [0.7, 0.7, 1.2], isTarget: true },

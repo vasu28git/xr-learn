@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
+const { retrieveModuleContent, matchModulesForTopics } = require("./retrieve");
+const { generateLearningModule } = require("./planner");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -23,6 +25,26 @@ if (supabaseUrl && supabaseAnonKey) {
     '⚠️ WARNING: Supabase credentials missing. Auth and progress services will return stubs/errors.'
   );
 }
+
+const getSupabaseClient = (req) => {
+  if (!supabaseUrl || !supabaseAnonKey) return null;
+  const authHeader = req?.headers?.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    return createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    });
+  }
+  return supabase;
+};
 
 // Authentication Middleware
 const requireAuth = async (req, res, next) => {
@@ -121,12 +143,13 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
 
 // Fetch All Progress for current student
 app.get('/api/progress', requireAuth, async (req, res) => {
-  if (!supabase) {
+  const client = getSupabaseClient(req);
+  if (!client) {
     return res.json([]);
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('module_progress')
       .select('*')
       .eq('student_id', req.user.id)
@@ -145,13 +168,14 @@ app.get('/api/progress', requireAuth, async (req, res) => {
 
 // Fetch Progress for a single module
 app.get('/api/progress/:moduleId', requireAuth, async (req, res) => {
-  if (!supabase) {
+  const client = getSupabaseClient(req);
+  if (!client) {
     return res.json(null);
   }
 
   const { moduleId } = req.params;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('module_progress')
       .select('*')
       .eq('student_id', req.user.id)
@@ -171,7 +195,8 @@ app.get('/api/progress/:moduleId', requireAuth, async (req, res) => {
 
 // Update Progress (Mark module complete)
 app.put('/api/progress/:moduleId', requireAuth, async (req, res) => {
-  if (!supabase) {
+  const client = getSupabaseClient(req);
+  if (!client) {
     return res.json({ success: true, message: 'Stub success (Supabase not configured)' });
   }
 
@@ -179,7 +204,7 @@ app.put('/api/progress/:moduleId', requireAuth, async (req, res) => {
   const { completed, attempts } = req.body;
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('module_progress')
       .upsert({
         student_id: req.user.id,
@@ -204,22 +229,35 @@ app.put('/api/progress/:moduleId', requireAuth, async (req, res) => {
 
 // Check if user has completed diagnostic
 app.get('/api/diagnostic', requireAuth, async (req, res) => {
-  if (!supabase) {
-    return res.json({ hasDiagnostic: true });
+  const client = getSupabaseClient(req);
+  if (!client) {
+    return res.json({ hasDiagnostic: true, weakModuleIds: [], weakConceptTopics: [] });
   }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('diagnostic_results')
-      .select('id')
+      .select('id, weak_module_ids, weak_concept_topics')
       .eq('student_id', req.user.id)
-      .limit(1);
+      .maybeSingle();
 
     if (error) {
       return res.status(400).json({ message: error.message });
     }
 
-    res.json({ hasDiagnostic: data && data.length > 0 });
+    if (data) {
+      res.json({
+        hasDiagnostic: true,
+        weakModuleIds: data.weak_module_ids || [],
+        weakConceptTopics: data.weak_concept_topics || []
+      });
+    } else {
+      res.json({
+        hasDiagnostic: false,
+        weakModuleIds: [],
+        weakConceptTopics: []
+      });
+    }
   } catch (err) {
     console.error('Check diagnostic error:', err);
     res.status(500).json({ message: 'Failed to check diagnostic status.' });
@@ -228,24 +266,34 @@ app.get('/api/diagnostic', requireAuth, async (req, res) => {
 
 // Save diagnostic results
 app.post('/api/diagnostic', requireAuth, async (req, res) => {
-  if (!supabase) {
+  const client = getSupabaseClient(req);
+  if (!client) {
     return res.json({ success: true });
   }
 
   try {
-    const { rows } = req.body;
-    if (!rows || !Array.isArray(rows)) {
-      return res.status(400).json({ message: 'Rows array is required.' });
+    const { rows, weakTopics, weakModuleIds } = req.body;
+    
+    let insertData;
+    if (weakTopics !== undefined && weakModuleIds !== undefined) {
+      insertData = {
+        student_id: req.user.id,
+        weak_concept_topics: weakTopics,
+        weak_module_ids: weakModuleIds,
+      };
+    } else {
+      if (!rows || !Array.isArray(rows)) {
+        return res.status(400).json({ message: 'Rows array or weakTopics/weakModuleIds is required.' });
+      }
+      insertData = rows.map(row => ({
+        ...row,
+        student_id: req.user.id
+      }));
     }
 
-    const rowsWithStudent = rows.map(row => ({
-      ...row,
-      student_id: req.user.id
-    }));
-
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('diagnostic_results')
-      .insert(rowsWithStudent);
+      .insert(insertData);
 
     if (error) {
       return res.status(400).json({ message: error.message });
@@ -397,6 +445,43 @@ Rules:
   } catch (error) {
     console.error('AI Tutor edge logic error:', error);
     res.status(500).json({ message: 'Something went wrong. Please try again.' });
+  }
+});
+
+// --- RAG ADAPTIVE LEARNING ROUTES ---
+app.post("/api/generate-theory", async (req, res) => {
+  if (!process.env.GEMINI_API_KEY) {
+    console.warn("GEMINI_API_KEY is not configured. Serving static theory fallback.");
+    return res.json({ theory: null });
+  }
+
+  const { moduleId, moduleTitle, topic } = req.body;
+  try {
+    const retrievedContent = await retrieveModuleContent(moduleId, topic);
+    const theory = await generateLearningModule({ moduleId, moduleTitle, retrievedContent });
+    res.json({ theory });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "theory generation failed" });
+  }
+});
+
+app.post("/api/match-topics", async (req, res) => {
+  try {
+    const { topics } = req.body;
+
+    if (!Array.isArray(topics) || topics.length === 0) {
+      return res.status(400).json({ error: 'Request body must include a non-empty "topics" array of strings' });
+    }
+    if (!topics.every(t => typeof t === "string" && t.trim().length > 0)) {
+      return res.status(400).json({ error: 'All entries in "topics" must be non-empty strings' });
+    }
+
+    const matches = await matchModulesForTopics(topics);
+    return res.status(200).json({ matches });
+  } catch (err) {
+    console.error("POST /api/match-topics failed:", err);
+    return res.status(500).json({ error: "Failed to match topics to modules" });
   }
 });
 

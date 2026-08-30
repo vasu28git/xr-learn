@@ -37,21 +37,57 @@ export default function ModulePage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [isCompleted, setIsCompleted] = useState(false)
+  const [theorySections, setTheorySections] = useState(null)
+  const [theoryLoading, setTheoryLoading] = useState(false)
+  const [theoryIsGenerated, setTheoryIsGenerated] = useState(false)
 
   useEffect(() => {
-    if (!user) return
-    async function checkProgress() {
+    if (!user || !moduleConfig) return
+    
+    async function checkProgressAndPersonalize() {
+      setTheoryLoading(true)
       try {
-        const data = await api.progress.get(moduleId)
-        if (data?.completed) {
+        // Fetch progress
+        const progressData = await api.progress.get(moduleId)
+        if (progressData?.completed) {
           setIsCompleted(true)
         }
+
+        // Fetch diagnostic results to check if module is weak
+        const diagRes = await api.diagnostic.check()
+        const weakIds = diagRes.weakModuleIds || []
+        const isWeak = weakIds.includes(moduleId)
+
+        // Only generate personalized theory for weak modules (except Capstone module 11)
+        if (isWeak && moduleId !== 11) {
+          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+          const res = await fetch(`${apiUrl}/generate-theory`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              moduleId,
+              moduleTitle: moduleConfig.title,
+              topic: moduleConfig.title,
+            }),
+          })
+          
+          if (res.ok) {
+            const { theory } = await res.json()
+            if (theory?.sections?.length > 0) {
+              setTheorySections(theory.sections)
+              setTheoryIsGenerated(true)
+            }
+          }
+        }
       } catch (err) {
-        console.error('Error checking progress:', err)
+        console.error('Error in progress or theory generation:', err)
+      } finally {
+        setTheoryLoading(false)
       }
     }
-    checkProgress()
-  }, [user, moduleId])
+    
+    checkProgressAndPersonalize()
+  }, [user, moduleId, moduleConfig])
 
   if (!moduleConfig) {
     return (
@@ -63,6 +99,15 @@ export default function ModulePage() {
         >
           Back to Dashboard
         </button>
+      </div>
+    )
+  }
+
+  if (theoryLoading) {
+    return (
+      <div className="bg-surface-container-lowest text-on-surface h-screen flex flex-col items-center justify-center gap-4 animate-pulse">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+        <p className="font-code-sm text-[10px] text-on-surface-variant uppercase tracking-wider font-bold">Personalizing learning experience...</p>
       </div>
     )
   }
@@ -80,6 +125,8 @@ export default function ModulePage() {
         moduleId={moduleId}
         moduleConfig={moduleConfig}
         user={user}
+        theorySections={theorySections}
+        theoryIsGenerated={theoryIsGenerated}
         onComplete={() => setIsCompleted(true)}
         onBack={() => navigate('/dashboard')}
       />

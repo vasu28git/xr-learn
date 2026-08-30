@@ -6,11 +6,22 @@ export const challenge1 = {
   xp: 100,
   description: 'Calculate the exact midpoint between two cubes (cubeA and cubeB) and place the green sphere at that position.',
   hint: 'The midpoint formula is: midpoint = (A + B) / 2. Apply it to each axis (X, Y, Z).',
-  starterCode: `// cubeA is at position (4, 1, 2)
-// cubeB is at position (-2, 3, -4)
-// Place the sphere at the exact midpoint
+  starterCode: `using UnityEngine;
 
-sphere.transform.position = new Vector3(0f, 0f, 0f);`,
+public class TransformController : MonoBehaviour
+{
+    public GameObject sphere;
+
+    void Start()
+    {
+        // cubeA is at position (4, 1, 2)
+        // cubeB is at position (-2, 3, -4)
+        // Place the sphere at the exact midpoint
+        
+        Vector3 midpoint = new Vector3(0f, 0f, 0f);
+        sphere.transform.position = midpoint;
+    }
+}`,
   scene: {
     objects: [
       { id: 'cubeA', type: 'box', position: [4, 1, 2], color: '#4488ff', size: [0.8, 0.8, 0.8] },

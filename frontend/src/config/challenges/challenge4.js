@@ -6,17 +6,29 @@ export const challenge4 = {
   xp: 250,
   description: 'Build a scene with 3 boxes. Each box should change to a unique color when clicked: box1 turns red, box2 turns green, box3 turns blue.',
   hint: 'Use box.OnClick(() => { ... }) for each box. Inside the handler, set box.GetComponent<Renderer>().material.color = Color.red (or the hex code).',
-  starterCode: `// Register click handlers for each box
-// box1 should turn red when clicked
-// box2 should turn green when clicked
-// box3 should turn blue when clicked
+  starterCode: `using UnityEngine;
 
-box1.transform.position = new Vector3(-2f, 1f, 0f);
-box2.transform.position = new Vector3(0f, 1f, 0f);
-box3.transform.position = new Vector3(2f, 1f, 0f);
+public class InteractionController : MonoBehaviour
+{
+    public GameObject box1;
+    public GameObject box2;
+    public GameObject box3;
 
-// Add your click handlers below:
-`,
+    void Start()
+    {
+        // Register click handlers for each box
+        // box1 should turn red when clicked
+        // box2 should turn green when clicked
+        // box3 should turn blue when clicked
+        
+        box1.transform.position = new Vector3(-2f, 1f, 0f);
+        box2.transform.position = new Vector3(0f, 1f, 0f);
+        box3.transform.position = new Vector3(2f, 1f, 0f);
+        
+        // Add your click handlers below:
+        
+    }
+}`,
   scene: {
     objects: [
       { id: 'box1', type: 'box', position: [-2, 1, 0], color: '#888888', size: [1, 1, 1] },

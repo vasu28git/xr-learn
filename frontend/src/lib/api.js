@@ -88,10 +88,10 @@ export const api = {
     async check() {
       return fetchAPI('/diagnostic');
     },
-    async submit(rows) {
+    async submit(payload) {
       return fetchAPI('/diagnostic', {
         method: 'POST',
-        body: JSON.stringify({ rows }),
+        body: JSON.stringify(payload),
       });
     }
   }

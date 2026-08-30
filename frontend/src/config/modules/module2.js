@@ -23,11 +23,19 @@ export const module2 = {
   },
   handsOn: {
     task: 'Move the blue box to the glowing green target by setting its X, Y, and Z position.',
-    starterCode: `// Move the box to the target position
-// X goes left/right, Y goes up/down, Z goes forward/back
-box.position.x = 0
-box.position.y = 0
-box.position.z = 0`,
+    starterCode: `using UnityEngine;
+
+public class CoordinatesController : MonoBehaviour
+{
+    public GameObject box;
+
+    void Start()
+    {
+        // Move the box to the target position
+        // X goes left/right, Y goes up/down, Z goes forward/back
+        box.transform.position = new Vector3(0f, 0f, 0f);
+    }
+}`,
     scene: {
       objects: [
         { id: 'box', type: 'box', position: [0, 0.5, 0], color: '#4488ff', size: [1, 1, 1] },

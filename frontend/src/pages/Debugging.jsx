@@ -1,4 +1,4 @@
-import { useState, useCallback, lazy, Suspense, useRef } from 'react'
+import { useState, useCallback, lazy, Suspense, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
@@ -42,7 +42,7 @@ function FanBladeGroup({ isSpinning }) {
 
 function FanScene({ isSpinning }) {
   return (
-    <Canvas camera={{ position: [0, 0, 4], fov: 50 }} style={{ background: '#0a0a0f', width: '100%', height: '100%' }}>
+    <Canvas camera={{ position: [0, 0, 4], fov: 50 }} style={{ background: '#0b0e14', width: '100%', height: '100%' }}>
       <ambientLight intensity={0.2} color="#4060ff" />
       <directionalLight intensity={0.8} position={[2, 2, 4]} />
       <gridHelper args={[10, 10, '#1a2040', '#1a2040']} rotation={[Math.PI / 2, 0, 0]} position={[0, 0, -1]} />
@@ -55,7 +55,7 @@ function FanScene({ isSpinning }) {
 // 2. Server Room Light Components
 function ServerRoom({ intensity }) {
   return (
-    <Canvas camera={{ position: [3, 2, 4], fov: 50 }} style={{ background: '#0a0a0f', width: '100%', height: '100%' }}>
+    <Canvas camera={{ position: [3, 2, 4], fov: 50 }} style={{ background: '#0b0e14', width: '100%', height: '100%' }}>
       <ambientLight intensity={0.1} />
       <pointLight intensity={intensity} position={[0, 2, 0]} color="#8ed5ff" castShadow />
       
@@ -88,7 +88,7 @@ function TeleporterPad({ beamDirection }) {
   const isForward = beamDirection === 'forward'
 
   return (
-    <Canvas camera={{ position: [0, 2, 5], fov: 50 }} style={{ background: '#0a0a0f', width: '100%', height: '100%' }}>
+    <Canvas camera={{ position: [0, 2, 5], fov: 50 }} style={{ background: '#0b0e14', width: '100%', height: '100%' }}>
       <ambientLight intensity={0.3} />
       <directionalLight intensity={0.7} position={[5, 5, 5]} />
       
@@ -128,6 +128,12 @@ const difficultyColors = {
   advanced: 'bg-red-500/10 text-red-500 border-red-500/30'
 }
 
+const difficultyGlows = {
+  beginner: 'hover:border-green-500/40',
+  intermediate: 'hover:border-yellow-500/40',
+  advanced: 'hover:border-red-500/40',
+}
+
 // --- TICKETS LIST ---
 const tickets = [
   {
@@ -136,6 +142,7 @@ const tickets = [
     difficulty: 'beginner',
     difficultyLabel: '🟢 Beginner',
     xp: 150,
+    fileName: 'FanController.cs',
     symptoms: 'The cooling fan model in the server room is static. It has received the run command via the global event system, but no rotation is occurring in the update loop.',
     expected: 'Upon initialization, the fan should smoothly rotate continuously around its Z-axis at the defined rotationSpeed.',
     actual: 'The mesh remains static. No errors are thrown, indicating a logical calculation error.',
@@ -158,7 +165,6 @@ public class FanController : MonoBehaviour
     }
 }`,
     validate: (code) => {
-      // User must replace rotationSpeed * 0 with rotationSpeed * Time.deltaTime
       return /rotationSpeed\s*\*\s*Time\.deltaTime/i.test(code) || /rotationSpeed\s*\*\s*deltaTime/i.test(code)
     }
   },
@@ -168,6 +174,7 @@ public class FanController : MonoBehaviour
     difficulty: 'intermediate',
     difficultyLabel: '🟡 Intermediate',
     xp: 250,
+    fileName: 'LightController.cs',
     symptoms: 'The system monitor shows lighting systems active, but the room remains dark and hard to navigate.',
     expected: 'Lighting should set its intensity parameter to targetIntensity (2.5f) on boot.',
     actual: 'The light intensity is locked at 0.1f (extremely dim).',
@@ -195,6 +202,7 @@ public class LightController : MonoBehaviour
     difficulty: 'advanced',
     difficultyLabel: '🔴 Advanced',
     xp: 350,
+    fileName: 'TeleportController.cs',
     symptoms: 'When firing the teleportation pointer pads, the projection beam shoots straight down into the floor pad instead of projecting forward.',
     expected: 'The projection vector direction should point forward along the Z-axis.',
     actual: 'The pointer pad vector direction is currently set to Vector3.down.',
@@ -223,7 +231,41 @@ export default function Debugging() {
   const [isResolved, setIsResolved] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
   const [lastError, setLastError] = useState(null)
+  const [activeSubTab, setActiveSubTab] = useState('backlog')
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
   const navigate = useNavigate()
+
+  // Resizable Panels State
+  const [leftWidth, setLeftWidth] = useState(340)
+  const [editorWidth, setEditorWidth] = useState(500)
+  const [isResizingLeft, setIsResizingLeft] = useState(false)
+  const [isResizingEditor, setIsResizingEditor] = useState(false)
+
+  // Collapsible Sidebar State
+  const [isLeftCollapsed, setIsLeftCollapsed] = useState(false)
+
+  // Fullscreen Visualizer State
+  const [isVisualizerFullscreen, setIsVisualizerFullscreen] = useState(false)
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+
+  const toggleTheme = () => {
+    const nextDark = !isDark
+    setIsDark(nextDark)
+    if (nextDark) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }
 
   const handleSelectTicket = (ticket) => {
     setSelectedTicket(ticket)
@@ -231,6 +273,7 @@ export default function Debugging() {
     setIsResolved(false)
     setShowFeedback(false)
     setLastError(null)
+    setActiveSubTab('ticket')
   }
 
   const handleSubmit = async () => {
@@ -257,205 +300,435 @@ export default function Debugging() {
     }
   }
 
-  return (
-    <div className="h-screen flex flex-col bg-surface-container-lowest text-on-surface font-body-md overflow-hidden w-full">
-      {/* Header */}
-      <header className="bg-surface border-b border-outline-variant flex justify-between items-center w-full px-8 h-16 z-50 shrink-0">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-1.5 text-on-surface-variant hover:text-on-surface px-2.5 py-1.5 rounded border border-outline-variant hover:bg-surface-container-highest transition-colors font-semibold text-xs tracking-wider cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-            Dashboard
-          </button>
-          <span className="font-headline-md text-sm font-bold text-primary tracking-tight">Multiverse 3D</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="font-code-sm text-xs text-on-surface-variant bg-surface-container-highest px-3 py-1 rounded border border-outline-variant/30 uppercase tracking-wider font-bold">
-            🐞 Debugging Hub
-          </span>
-        </div>
-      </header>
+  // Drag resizing handlers
+  const startResizeLeft = useCallback((e) => {
+    setIsResizingLeft(true)
+    e.preventDefault()
+  }, [])
 
-      {/* Main Workspace split */}
-      <main className="flex-1 flex overflow-hidden w-full relative">
-        
-        {/* Left Side: Ticket selector */}
-        <aside className="w-80 border-r border-outline-variant bg-surface-container-lowest flex flex-col shrink-0">
-          <div className="p-3 border-b border-outline-variant bg-surface-container-low flex items-center justify-between shrink-0">
-            <span className="font-headline-sm text-xs font-semibold text-on-surface">Ticket Backlog</span>
-            <span className="font-code-sm text-[10px] text-on-surface-variant bg-surface-container-highest px-2 py-0.5 rounded font-bold">
-              {tickets.length} Active
-            </span>
+  const startResizeEditor = useCallback((e) => {
+    setIsResizingEditor(true)
+    e.preventDefault()
+  }, [])
+
+  const stopResize = useCallback(() => {
+    setIsResizingLeft(false)
+    setIsResizingEditor(false)
+  }, [])
+
+  const resize = useCallback((e) => {
+    if (isResizingLeft) {
+      const newWidth = e.clientX - 8
+      if (newWidth > 220 && newWidth < 460) {
+        setLeftWidth(newWidth)
+      }
+    }
+    if (isResizingEditor) {
+      const newWidth = e.clientX - (isLeftCollapsed ? 0 : leftWidth) - 16
+      if (newWidth > 300 && newWidth < 800) {
+        setEditorWidth(newWidth)
+      }
+    }
+  }, [isResizingLeft, isResizingEditor, leftWidth, isLeftCollapsed])
+
+  useEffect(() => {
+    if (isResizingLeft || isResizingEditor) {
+      window.addEventListener('mousemove', resize)
+      window.addEventListener('mouseup', stopResize)
+    }
+    return () => {
+      window.removeEventListener('mousemove', resize)
+      window.removeEventListener('mouseup', stopResize)
+    }
+  }, [isResizingLeft, isResizingEditor, resize, stopResize])
+
+  return (
+    <div className="h-screen flex flex-col bg-surface-container-lowest text-on-surface font-body-md overflow-hidden w-full transition-colors duration-300">
+      
+      {/* Redesigned Common Navigation Bar */}
+      {!isVisualizerFullscreen && (
+        <nav className="bg-surface border-b border-outline-variant/45 flex justify-between items-center w-full px-6 lg:px-8 h-16 z-50 shrink-0 sticky top-0 transition-colors duration-300 shadow-sm">
+          <div className="flex items-center gap-8">
+            {/* Logo */}
+            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate('/dashboard')}>
+              <div className="text-[#6366f1] flex items-center">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M12 22V12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M12 12L2 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M12 12L22 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M2 17L12 12L22 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M12 2L12 12" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 2" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <span className="font-headline-md font-bold text-sm tracking-tight text-on-surface">
+                <span className="text-[#6366f1]">Multiverse</span> 3D
+              </span>
+            </div>
+            
+            {/* Center Tabs Removed */}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {tickets.map((t) => (
+          {/* Right side controls */}
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={toggleTheme}
+              className="text-on-surface-variant hover:text-primary transition-colors cursor-pointer p-2 rounded-full hover:bg-surface-container-high flex items-center justify-center"
+              title="Toggle theme"
+            >
+              {isDark ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="5" />
+                  <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+              )}
+            </button>
+            
+            <button 
+              onClick={() => navigate('/dashboard')}
+              className="text-on-surface-variant hover:text-[#6366f1] transition-colors cursor-pointer p-2 rounded-full hover:bg-surface-container-high flex items-center justify-center"
+              title="Back to Dashboard"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+              </svg>
+            </button>
+
+            <div className="w-8 h-8 rounded-full border border-outline-variant/60 overflow-hidden select-none">
+              <img 
+                alt="User profile avatar" 
+                className="w-full h-full object-cover" 
+                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
+              />
+            </div>
+          </div>
+        </nav>
+      )}
+
+      {/* Main Workspace Resizable Layout with Reduced Spacing */}
+      <main className="flex-1 flex overflow-hidden w-full p-2.5 gap-1.5 bg-surface-container-lowest transition-colors duration-300 relative">
+        
+        {/* Floating Expanded Guide Handle */}
+        {isLeftCollapsed && !isVisualizerFullscreen && (
+          <button 
+            onClick={() => setIsLeftCollapsed(false)}
+            className="fixed left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#6366f1] hover:bg-[#5053e1] text-white flex items-center justify-center shadow-lg z-40 transition-all cursor-pointer"
+            title="Expand Guide"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+              <path d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        )}
+
+        {/* Panel 1: Backlog / Tickets guide card */}
+        {!isLeftCollapsed && !isVisualizerFullscreen && (
+          <section 
+            style={{ width: leftWidth }}
+            className="bg-surface border border-outline-variant/40 rounded-3xl flex flex-col shrink-0 shadow-sm overflow-hidden transition-colors duration-300"
+          >
+            {/* Header */}
+            <div className="p-4 border-b border-outline-variant/45 flex items-center justify-between shrink-0">
+              <button 
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center gap-1.5 text-on-surface font-bold text-xs hover:text-[#6366f1] transition-colors cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+                <span>Debugging Hub</span>
+              </button>
+
+              {/* Collapse button */}
+              <button 
+                onClick={() => setIsLeftCollapsed(true)}
+                className="text-on-surface-variant hover:text-on-surface p-1.5 rounded-lg hover:bg-surface-container-high transition-colors cursor-pointer"
+                title="Collapse Panel"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Sub Tabs */}
+            <div className="flex border-b border-outline-variant/45 px-6 shrink-0">
               <button
-                key={t.id}
-                onClick={() => handleSelectTicket(t)}
-                className={`w-full text-left p-4 rounded-xl border transition-all duration-150 cursor-pointer ${
-                  selectedTicket?.id === t.id
-                    ? 'bg-primary/10 border-primary text-on-surface shadow-md'
-                    : 'bg-surface-container-low border-outline-variant/30 text-on-surface-variant hover:border-outline'
+                onClick={() => setActiveSubTab('backlog')}
+                className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition-all cursor-pointer ${
+                  activeSubTab === 'backlog'
+                    ? 'border-b-[#6366f1] text-[#6366f1]'
+                    : 'border-b-transparent text-on-surface-variant hover:text-on-surface'
                 }`}
               >
-                <div className="flex justify-between items-start mb-2">
-                  <span className="font-code-sm text-[9px] text-on-surface-variant font-bold">#TICKET-{t.id}</span>
-                  <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${difficultyColors[t.difficulty]}`}>
-                    {t.difficulty}
-                  </span>
-                </div>
-                <h4 className="font-headline-sm text-xs font-semibold leading-tight text-on-surface">{t.title}</h4>
-                <div className="mt-3 flex justify-between items-center text-[9px] font-code-sm text-on-surface-variant">
-                  <span>Reward:</span>
-                  <span className="text-secondary font-bold">{t.xp} XP</span>
-                </div>
+                Backlog
               </button>
-            ))}
-          </div>
-        </aside>
-
-        {/* Center: Ticket Symptoms & Expected Behaviors */}
-        <section className="flex-1 flex flex-col overflow-hidden min-w-[320px] border-r border-outline-variant bg-surface-container-lowest">
-          {!selectedTicket ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-6 gap-3">
-              <span className="material-symbols-outlined text-4xl text-on-surface-variant animate-pulse">bug_report</span>
-              <h2 className="font-headline-md text-base font-bold text-on-surface">Select a Debug Ticket</h2>
-              <p className="font-body-sm text-xs text-on-surface-variant max-w-xs leading-relaxed">
-                Choose a ticket from the backlog sidebar to initialize code and viewport simulations.
-              </p>
+              <button
+                disabled={!selectedTicket}
+                onClick={() => setActiveSubTab('ticket')}
+                className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider text-center border-b-2 transition-all cursor-pointer disabled:opacity-40 ${
+                  activeSubTab === 'ticket'
+                    ? 'border-b-[#6366f1] text-[#6366f1]'
+                    : 'border-b-transparent text-on-surface-variant hover:text-on-surface'
+                }`}
+              >
+                Ticket Details
+              </button>
             </div>
-          ) : (
-            <div className="flex-1 flex flex-col h-full overflow-hidden">
-              {/* Ticket header */}
-              <div className="p-5 border-b border-outline-variant bg-surface-container-low shrink-0">
-                <div className="flex items-center gap-2 text-[10px] text-error font-bold uppercase tracking-wider mb-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>
-                  <span>Ticket #{selectedTicket.id}</span>
-                </div>
-                <h2 className="font-headline-md text-base font-bold text-primary">{selectedTicket.title}</h2>
-              </div>
 
-              {/* Symptoms */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-4 font-body-sm text-xs text-on-surface-variant">
-                <div>
-                  <h3 className="font-semibold text-on-surface mb-1">Symptoms</h3>
-                  <p className="leading-relaxed">{selectedTicket.symptoms}</p>
+            {/* Panel Content Body */}
+            <div className="flex-1 overflow-y-auto p-6">
+              
+              {activeSubTab === 'backlog' && (
+                <div className="space-y-3">
+                  {tickets.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => handleSelectTicket(t)}
+                      className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 cursor-pointer ${
+                        selectedTicket?.id === t.id
+                          ? 'bg-[#6366f1]/10 border-[#6366f1] text-on-surface shadow-sm'
+                          : `bg-surface border-outline-variant/35 text-on-surface-variant hover:bg-surface-container-high/40 ${difficultyGlows[t.difficulty]}`
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-code-sm text-[9px] text-on-surface-variant font-bold">#TICKET-{t.id}</span>
+                        <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-lg border ${difficultyColors[t.difficulty]}`}>
+                          {t.difficulty}
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-bold leading-tight text-on-surface mb-2">{t.title}</h4>
+                      <div className="flex justify-between items-center text-[10px] font-bold">
+                        <span className="text-on-surface-variant">Reward:</span>
+                        <span className="text-emerald-500">{t.xp} XP</span>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                <div className="pl-3 border-l-2 border-secondary/50">
-                  <h3 className="font-semibold text-on-surface mb-1">Expected Behavior</h3>
-                  <p className="leading-relaxed">{selectedTicket.expected}</p>
-                </div>
-                <div className="pl-3 border-l-2 border-error/50">
-                  <h3 className="font-semibold text-on-surface mb-1">Actual Behavior</h3>
-                  <p className="leading-relaxed">{selectedTicket.actual}</p>
-                </div>
+              )}
 
-                <div className="bg-surface-container border border-outline-variant rounded p-3 mt-6">
-                  <h4 className="font-code-sm text-[10px] text-on-surface-variant uppercase font-bold tracking-wider mb-1">HINT DIALECT</h4>
-                  <p className="font-body-sm text-[11px] text-on-surface">{selectedTicket.hint}</p>
-                </div>
-              </div>
-
-              {/* Viewport Render area */}
-              <div className="h-[280px] bg-[#0a0a0f] border-t border-outline-variant relative">
-                <div className="absolute top-3 left-3 z-10 bg-surface/85 border border-outline-variant rounded px-2.5 py-1 flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-sm text-primary">view_in_ar</span>
-                  <span className="font-label-caps text-[9px] text-on-surface font-bold uppercase tracking-wider">XR Output</span>
-                </div>
-
-                <Suspense fallback={
-                  <div className="h-full flex items-center justify-center">
-                    <span className="font-code-sm text-[10px] text-on-surface-variant animate-pulse">BOOTING XR RENDERER...</span>
+              {activeSubTab === 'ticket' && selectedTicket && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-[10px] text-error font-bold uppercase tracking-wider mb-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>
+                    <span>Active Ticket #{selectedTicket.id}</span>
                   </div>
-                }>
-                  {selectedTicket.id === 842 && <FanScene isSpinning={isResolved} />}
-                  {selectedTicket.id === 901 && <ServerRoom intensity={isResolved ? 2.5 : 0.1} />}
-                  {selectedTicket.id === 104 && <TeleporterPad beamDirection={isResolved ? 'forward' : 'down'} />}
-                </Suspense>
+                  <h3 className="text-base font-bold text-on-surface leading-tight mb-4">{selectedTicket.title}</h3>
 
-                {/* Bug warning banner */}
-                {!isResolved && (
-                  <div className="absolute bottom-3 left-3 bg-error-container/80 backdrop-blur-md border border-error/30 text-error rounded px-2.5 py-1 text-[10px] font-semibold flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[14px]">warning</span>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Symptoms</h4>
+                      <p className="text-xs text-on-surface-variant leading-relaxed">{selectedTicket.symptoms}</p>
+                    </div>
+                    <div className="pl-3 border-l-2 border-emerald-500/50">
+                      <h4 className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Expected</h4>
+                      <p className="text-xs text-on-surface-variant leading-relaxed">{selectedTicket.expected}</p>
+                    </div>
+                    <div className="pl-3 border-l-2 border-red-500/50">
+                      <h4 className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Actual</h4>
+                      <p className="text-xs text-on-surface-variant leading-relaxed">{selectedTicket.actual}</p>
+                    </div>
+
+                    <div className="bg-amber-500/5 border-l-4 border-amber-500 p-4 rounded-r-2xl mt-4 flex items-start gap-2 text-xs text-on-surface-variant">
+                      <span className="text-amber-500 text-sm">💡</span>
+                      <p><strong>Hint:</strong> {selectedTicket.hint}</p>
+                    </div>
+                  </div>
+
+                  {/* Grading Feedback Results Panel */}
+                  {showFeedback && (
+                    <div className={`p-4 rounded-2xl border mt-6 flex flex-col ${isResolved ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-outline-variant/35 bg-surface-container-lowest'}`}>
+                      <h4 className="text-xs font-bold text-on-surface border-b border-outline-variant/30 pb-2 mb-3 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>{isResolved ? '🎉 Debug Successful!' : 'Compile status'}</span>
+                      </h4>
+                      
+                      <div className="font-mono text-[10px] space-y-2.5 text-on-surface-variant">
+                        {isResolved ? (
+                          <div className="space-y-1.5 text-emerald-500 font-semibold">
+                            <p>✓ Code validation checks completed.</p>
+                            <p>✓ Scene parameters resolved.</p>
+                            <p>✓ Telemetry data verified.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5 text-red-500 font-semibold">
+                            {lastError ? (
+                              <p className="leading-relaxed">{lastError}</p>
+                            ) : (
+                              <>
+                                <p>✗ C# validator execution failed.</p>
+                                <p>✗ Scene variables mismatch.</p>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+              )}
+
+            </div>
+
+            {/* Sticky Submission Button */}
+            {selectedTicket && (
+              <div className="p-4 border-t border-outline-variant/45 shrink-0 bg-surface">
+                <button 
+                  onClick={handleSubmit}
+                  className="w-full bg-[#6366f1] hover:bg-[#5053e1] text-white font-bold text-xs py-3 rounded-xl transition-all cursor-pointer flex justify-center items-center gap-2 shadow-md shadow-[#6366f1]/15"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138z" />
+                  </svg>
+                  <span>Submit Code Fix</span>
+                </button>
+              </div>
+            )}
+
+          </section>
+        )}
+
+        {/* Divider 1 */}
+        {!isLeftCollapsed && !isVisualizerFullscreen && (
+          <div 
+            onMouseDown={startResizeLeft}
+            className="w-1 cursor-col-resize hover:bg-[#6366f1]/40 active:bg-[#6366f1] transition-colors h-full self-stretch shrink-0 rounded"
+            title="Drag to resize ticket backlog"
+          />
+        )}
+
+        {/* Panel 2: Editor */}
+        {!isVisualizerFullscreen && (
+          <section style={{ width: editorWidth }} className="flex flex-col shrink-0">
+            {selectedTicket ? (
+              <CodeEditor
+                code={code}
+                onChange={setCode}
+                onRun={handleSubmit}
+                onReset={() => {
+                  if (window.confirm("Reset editor to bugged state?")) {
+                    setCode(selectedTicket.starterCode)
+                    setIsResolved(false)
+                    setShowFeedback(false)
+                    setLastError(null)
+                  }
+                }}
+                error={lastError}
+                isDark={isDark}
+                fileName={selectedTicket.fileName || "TransformController.cs"}
+                language="csharp"
+              />
+            ) : (
+              <div className="flex-1 bg-surface border border-outline-variant/45 rounded-3xl flex flex-col items-center justify-center p-6 text-center text-on-surface-variant/80">
+                <svg className="w-10 h-10 text-on-surface-variant opacity-60 mb-2" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <path d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+                </svg>
+                <p className="text-xs">Select a debug ticket from the backlog to open files.</p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Divider 2 */}
+        {!isVisualizerFullscreen && (
+          <div 
+            onMouseDown={startResizeEditor}
+            className="w-1 cursor-col-resize hover:bg-[#6366f1]/40 active:bg-[#6366f1] transition-colors h-full self-stretch shrink-0 rounded"
+            title="Drag to resize editor"
+          />
+        )}
+
+        {/* Panel 3: Visualizer Output */}
+        <section 
+          className={`flex flex-col bg-surface border border-outline-variant/45 rounded-3xl shadow-sm overflow-hidden transition-all duration-300 ${
+            isVisualizerFullscreen 
+              ? 'fixed inset-0 z-[100] w-screen h-screen rounded-none border-none shadow-none' 
+              : 'flex-1 min-w-[320px]'
+          }`}
+        >
+          {/* visualizer header */}
+          <div className="flex items-center justify-between border-b border-outline-variant bg-surface-container-lowest h-12 shrink-0 px-4 transition-colors duration-300">
+            <div className="flex items-center gap-2 h-full">
+              <div className="h-full border-b-2 border-b-[#6366f1] px-4 flex items-center gap-2 cursor-pointer">
+                <svg className="w-4 h-4 text-[#6366f1]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <span className="font-code-md text-xs font-semibold text-on-surface">Output Visualizer</span>
+              </div>
+            </div>
+            
+            {/* Fullscreen toggle */}
+            <button 
+              onClick={() => setIsVisualizerFullscreen(!isVisualizerFullscreen)}
+              className="text-on-surface-variant hover:text-[#6366f1] p-1.5 rounded-lg hover:bg-surface-container-high transition-colors cursor-pointer" 
+              title={isVisualizerFullscreen ? "Exit Full Screen" : "Expand to Full Screen"}
+            >
+              {isVisualizerFullscreen ? (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path d="M4 14h6v6m10-6h-6v6M4 10h6V4m10 6h-6V4" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                </svg>
+              )}
+            </button>
+          </div>
+
+          {/* Canvas area */}
+          <div className="flex-1 w-full h-full relative bg-[#0b0e14]">
+            {/* FPS overlay */}
+            <div className="absolute top-4 right-4 z-10">
+              <div className="bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-xl flex items-center gap-2 text-white shadow-lg pointer-events-none">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500 absolute top-2.5 left-3.5"></span>
+                <span className="text-[10px] font-bold tracking-wider uppercase">60 FPS</span>
+              </div>
+            </div>
+
+            {selectedTicket ? (
+              <Suspense fallback={
+                <div className="h-full flex items-center justify-center">
+                  <span className="font-code-sm text-[10px] text-on-surface-variant animate-pulse">BOOTING XR RENDERER...</span>
+                </div>
+              }>
+                {selectedTicket.id === 842 && <FanScene isSpinning={isResolved} />}
+                {selectedTicket.id === 901 && <ServerRoom intensity={isResolved ? 2.5 : 0.1} />}
+                {selectedTicket.id === 104 && <TeleporterPad beamDirection={isResolved ? 'forward' : 'down'} />}
+              </Suspense>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 h-full text-white/50">
+                <svg className="w-10 h-10 text-white/30 mb-2" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <path d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25" />
+                </svg>
+                <p className="text-xs">Visualizer offline. Select a debug ticket to boot simulator.</p>
+              </div>
+            )}
+
+            {/* Warning indicator */}
+            {selectedTicket && (
+              <div className="absolute bottom-4 left-4 z-10">
+                {!isResolved ? (
+                  <div className="bg-red-500/10 backdrop-blur-md border border-red-500/30 text-red-500 rounded-xl px-3 py-1.5 text-[10px] font-bold flex items-center gap-1.5 shadow-[0_0_10px_rgba(239,68,68,0.15)]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
                     <span>Mesh Error / Fault Detected</span>
                   </div>
-                )}
-                {isResolved && (
-                  <div className="absolute bottom-3 left-3 bg-secondary/15 backdrop-blur-md border border-secondary/35 text-secondary rounded px-2.5 py-1 text-[10px] font-semibold flex items-center gap-1.5 shadow-[0_0_10px_rgba(77,224,130,0.15)]">
-                    <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                ) : (
+                  <div className="bg-emerald-500/10 backdrop-blur-md border border-emerald-500/30 text-emerald-500 rounded-xl px-3 py-1.5 text-[10px] font-bold flex items-center gap-1.5 shadow-[0_0_10px_rgba(77,224,130,0.15)]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                     <span>System Functional</span>
                   </div>
                 )}
               </div>
-            </div>
-          )}
+            )}
+
+          </div>
         </section>
 
-        {/* Right Side: Monaco Code Editor & Submissions */}
-        {selectedTicket && (
-          <aside className="w-96 flex flex-col p-4 bg-surface gap-4 shrink-0 overflow-y-auto">
-            <div className="h-[360px] shrink-0">
-              <Suspense fallback={
-                <div className="h-full flex items-center justify-center border border-outline-variant rounded-lg">
-                  <span className="font-code-sm text-[10px] text-on-surface-variant">Loading editor...</span>
-                </div>
-              }>
-                <CodeEditor
-                  code={code}
-                  onChange={setCode}
-                  onRun={handleSubmit} // Simply run validator
-                />
-              </Suspense>
-            </div>
-
-            <button
-              onClick={handleSubmit}
-              className="w-full bg-primary hover:bg-primary-fixed text-on-primary font-headline-sm text-xs py-2.5 rounded font-bold transition-colors cursor-pointer flex justify-center items-center gap-2 shrink-0 shadow-lg shadow-primary/10"
-            >
-              <span className="material-symbols-outlined text-sm">science</span>
-              Submit Code Fix
-            </button>
-
-            {/* Test Feedbacks */}
-            {showFeedback && (
-              <div className={`glass-panel p-4 rounded-xl flex-1 flex flex-col min-h-[160px] ${isResolved ? 'border-secondary/40 bg-secondary/5' : 'border-outline-variant/30'}`}>
-                <h3 className="font-headline-sm text-xs font-bold text-on-surface border-b border-outline-variant/50 pb-2 mb-3 flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px] text-on-surface-variant">terminal</span>
-                  {isResolved ? '🎉 Simulation Successful!' : 'Compile Status'}
-                </h3>
-                <div className="font-code-sm text-[11px] space-y-2 flex-1">
-                  {isResolved ? (
-                    <div className="space-y-2 text-secondary font-bold">
-                      <p>✓ Code transpilation passed.</p>
-                      <p>✓ Objective parameters matched.</p>
-                      <p>✓ Fan/Component behavior resolved in XR scene.</p>
-                      <p className="text-on-surface text-[10px] font-normal leading-relaxed mt-2 bg-secondary/10 border border-secondary/20 p-2.5 rounded">
-                        Nice work! The logical error has been fixed. The variables represent physical vectors correctly.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 text-error font-semibold">
-                      {lastError ? (
-                        <p>{lastError}</p>
-                      ) : (
-                        <>
-                          <p>✗ Compilation Warning: Logic test failed.</p>
-                          <p>✗ Parameter mismatch: Component remains static.</p>
-                        </>
-                      )}
-                      <p className="text-on-surface-variant text-[10px] font-normal leading-relaxed mt-2 bg-error-container/10 border border-error/20 p-2.5 rounded">
-                        {lastError ? "Fix compilation errors in the C# source code." : "Verification failed. Double check if you modified the correct values. Check the hints inside the center pane curriculum description."}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </aside>
-        )}
       </main>
     </div>
   )

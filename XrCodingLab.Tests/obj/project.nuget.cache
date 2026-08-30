@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "9EAaYRqKBYM=",
+  "dgSpecHash": "h9jJH3f0VyI=",
   "success": true,
-  "projectFilePath": "C:\\Users\\admin\\Downloads\\mock projects\\mock3d\\XrCodingLab.Tests\\XrCodingLab.Tests.csproj",
+  "projectFilePath": "C:\\Users\\admin\\OneDrive\\Desktop\\xr-learn\\XrCodingLab.Tests\\XrCodingLab.Tests.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\admin\\.nuget\\packages\\coverlet.collector\\6.0.4\\coverlet.collector.6.0.4.nupkg.sha512",
     "C:\\Users\\admin\\.nuget\\packages\\microsoft.codeanalysis.analyzers\\3.3.4\\microsoft.codeanalysis.analyzers.3.3.4.nupkg.sha512",

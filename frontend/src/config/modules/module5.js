@@ -24,12 +24,19 @@ export const module5 = {
   },
   handsOn: {
     task: 'Make the box change color to red when clicked, and return to blue when clicked again.',
-    starterCode: `// Add a click handler to the box
-box.onClick(function() {
-  // Change the box color here
-  // Use: box.color = '#ff4444' for red
-  // Use: box.color = '#4488ff' for blue
-})`,
+    starterCode: `using UnityEngine;
+
+public class InteractionController : MonoBehaviour
+{
+    public GameObject box;
+
+    void Start()
+    {
+        // Add a click handler to the box
+        // Use: box.GetComponent<Renderer>().material.color = Color.red; for red
+        // Use: box.GetComponent<Renderer>().material.color = Color.blue; for blue
+    }
+}`,
     scene: {
       objects: [
         { id: 'box', type: 'box', position: [0, 1, 0], color: '#4488ff', size: [1.5, 1.5, 1.5] },

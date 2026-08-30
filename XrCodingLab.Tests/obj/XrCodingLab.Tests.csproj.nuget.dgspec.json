@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\admin\\Downloads\\mock projects\\mock3d\\XrCodingLab.Tests\\XrCodingLab.Tests.csproj": {}
+    "C:\\Users\\admin\\OneDrive\\Desktop\\xr-learn\\XrCodingLab.Tests\\XrCodingLab.Tests.csproj": {}
   },
   "projects": {
-    "C:\\Users\\admin\\Downloads\\mock projects\\mock3d\\server\\XrCodingLab.Server.csproj": {
+    "C:\\Users\\admin\\OneDrive\\Desktop\\xr-learn\\server\\XrCodingLab.Server.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\admin\\Downloads\\mock projects\\mock3d\\server\\XrCodingLab.Server.csproj",
+        "projectUniqueName": "C:\\Users\\admin\\OneDrive\\Desktop\\xr-learn\\server\\XrCodingLab.Server.csproj",
         "projectName": "XrCodingLab.Server",
-        "projectPath": "C:\\Users\\admin\\Downloads\\mock projects\\mock3d\\server\\XrCodingLab.Server.csproj",
+        "projectPath": "C:\\Users\\admin\\OneDrive\\Desktop\\xr-learn\\server\\XrCodingLab.Server.csproj",
         "packagesPath": "C:\\Users\\admin\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\admin\\Downloads\\mock projects\\mock3d\\server\\obj\\",
+        "outputPath": "C:\\Users\\admin\\OneDrive\\Desktop\\xr-learn\\server\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\admin\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -488,14 +488,14 @@
         }
       }
     },
-    "C:\\Users\\admin\\Downloads\\mock projects\\mock3d\\XrCodingLab.Tests\\XrCodingLab.Tests.csproj": {
+    "C:\\Users\\admin\\OneDrive\\Desktop\\xr-learn\\XrCodingLab.Tests\\XrCodingLab.Tests.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\admin\\Downloads\\mock projects\\mock3d\\XrCodingLab.Tests\\XrCodingLab.Tests.csproj",
+        "projectUniqueName": "C:\\Users\\admin\\OneDrive\\Desktop\\xr-learn\\XrCodingLab.Tests\\XrCodingLab.Tests.csproj",
         "projectName": "XrCodingLab.Tests",
-        "projectPath": "C:\\Users\\admin\\Downloads\\mock projects\\mock3d\\XrCodingLab.Tests\\XrCodingLab.Tests.csproj",
+        "projectPath": "C:\\Users\\admin\\OneDrive\\Desktop\\xr-learn\\XrCodingLab.Tests\\XrCodingLab.Tests.csproj",
         "packagesPath": "C:\\Users\\admin\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\admin\\Downloads\\mock projects\\mock3d\\XrCodingLab.Tests\\obj\\",
+        "outputPath": "C:\\Users\\admin\\OneDrive\\Desktop\\xr-learn\\XrCodingLab.Tests\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\admin\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -511,8 +511,8 @@
             "framework": "net10.0",
             "targetAlias": "net10.0",
             "projectReferences": {
-              "C:\\Users\\admin\\Downloads\\mock projects\\mock3d\\server\\XrCodingLab.Server.csproj": {
-                "projectPath": "C:\\Users\\admin\\Downloads\\mock projects\\mock3d\\server\\XrCodingLab.Server.csproj"
+              "C:\\Users\\admin\\OneDrive\\Desktop\\xr-learn\\server\\XrCodingLab.Server.csproj": {
+                "projectPath": "C:\\Users\\admin\\OneDrive\\Desktop\\xr-learn\\server\\XrCodingLab.Server.csproj"
               }
             }
           }

@@ -22,11 +22,22 @@ export const module10 = {
   },
   handsOn: {
     task: 'Apply force to the ball and tune gravity and restitution so it bounces correctly on the platform.',
-    starterCode: `// Physics module. Requires a physics engine such as @react-three/rapier or @react-three/cannon.
-// Set gravity and bounce settings, then apply a force to the ball.
-ball.setGravity(9.8)
-ball.setRestitution(0.8)
-ball.applyForce(0, 2, 0)`,
+    starterCode: `using UnityEngine;
+
+public class PhysicsController : MonoBehaviour
+{
+    public Rigidbody ballRigidbody;
+    public PhysicsMaterial ballMaterial;
+
+    void Start()
+    {
+        // Physics module. Requires a physics engine component.
+        // Set gravity and bounce settings, then apply a force to the ball.
+        Physics.gravity = new Vector3(0, -9.8f, 0);
+        ballMaterial.bounciness = 0.8f;
+        ballRigidbody.AddForce(new Vector3(0, 2f, 0), ForceMode.Impulse);
+    }
+}`,
     scene: {
       objects: [
         { id: 'ball', type: 'sphere', position: [0, 3, 0], color: '#ff8a65', size: [0.5, 32, 32] },

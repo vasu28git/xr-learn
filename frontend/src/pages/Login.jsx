@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 
@@ -8,7 +8,29 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
   const navigate = useNavigate()
+
+  useEffect(() => {
+    // Sync with HTML class attribute modifications
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+
+  const toggleTheme = () => {
+    const nextDark = !isDark
+    setIsDark(nextDark)
+    if (nextDark) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -25,112 +47,189 @@ export default function Login() {
   }
 
   return (
-    <div className="bg-surface-container-lowest text-on-surface font-body-md min-h-screen flex items-center justify-center relative overflow-hidden">
+    <div className="bg-surface-container-lowest text-on-surface font-body-md min-h-screen flex items-center justify-center relative overflow-hidden p-4 transition-colors duration-300">
+      {/* Theme Toggle Button */}
+      <button 
+        onClick={toggleTheme}
+        className="fixed top-6 right-6 z-50 p-3 rounded-full bg-surface border border-outline-variant/60 hover:bg-surface-container-highest text-on-surface shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer flex items-center justify-center"
+        title="Toggle light/dark mode"
+      >
+        {isDark ? (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="5" />
+            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+          </svg>
+        ) : (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+        )}
+      </button>
+
       {/* Decorative background elements */}
-      <div className="absolute inset-0 z-0 pointer-events-none opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(142, 213, 255, 0.15) 0%, transparent 50%)' }}></div>
-      <div className="absolute top-0 left-0 w-full h-full z-0 pointer-events-none opacity-5" style={{ backgroundImage: 'linear-gradient(rgba(142, 213, 255, 0.2) 1px, transparent 1px), linear-gradient(90deg, rgba(142, 213, 255, 0.2) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+      <div className="absolute inset-0 z-0 pointer-events-none opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.1) 0%, transparent 60%)' }}></div>
+      <div className="absolute top-0 left-0 w-full h-full z-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(rgba(99, 102, 241, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(99, 102, 241, 0.15) 1px, transparent 1px)', backgroundSize: '32px 32px' }}></div>
       
-      <main className="relative z-10 w-full max-w-md px-6">
-        <div className="glass-panel rounded-xl p-8 flex flex-col items-center">
-          {/* Logo & Header */}
-          <div className="mb-8 flex flex-col items-center text-center">
-            <Link to="/" className="flex flex-col items-center">
-              <img alt="Multiverse 3D Logo" className="w-16 h-16 object-contain mb-4" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtOTbpz51u71Hvf_uHPZmHrtxLcjmxuydOvmkN_azvNvrgQc-maFuicqOeFpwzdLEYC5y_F_X8VdvHcy-nCNp-84HQIwNNEiJpNx5kh7KegDZ5WbN-6E-MarnNrqFE8TW2AusuXHCcA63FLz6_PseZ1blbyVKhK_jLrRFL7wx09SFn7sUmngOkdJ3wzZruMtO3OjnZmeS6PB5UgxQibLwUWlFl4WwHjlfd4mRwIJ5rMqEPOKDSUyZjrw"/>
-              <h1 className="font-headline-md text-headline-md text-on-surface tracking-tight mb-2">Multiverse 3D</h1>
-            </Link>
-            <p className="font-code-sm text-[10px] text-on-surface-variant tracking-wider uppercase">Learn XR. Build XR. Debug XR.</p>
+      <main className="relative z-10 w-full max-w-[460px] py-8">
+        <div className="bg-surface border border-outline-variant/45 rounded-[32px] p-8 md:p-10 flex flex-col items-center shadow-xl transition-all duration-300">
+          
+          {/* Logo Header */}
+          <div className="flex items-center gap-2.5 mb-6">
+            <div className="text-[#6366f1] flex items-center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7V17L12 22L22 17V7L12 2Z" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 22V12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 12L2 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 12L22 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 17L12 12L22 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M12 2L12 12" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 2" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <span className="font-headline-md font-bold text-sm tracking-tight text-on-surface">
+              <span className="text-[#6366f1]">Multiverse</span> 3D
+            </span>
+          </div>
+
+          {/* VR Character Illustration */}
+          <div className="flex justify-center mb-4 w-full select-none pointer-events-none">
+            <img 
+              src={isDark ? "/vr_character_dark.png" : "/vr_character_light.png"} 
+              alt="VR Learning Character" 
+              className={`h-32 w-auto object-contain transition-all duration-300 ${isDark ? 'mix-blend-screen' : 'mix-blend-multiply'}`}
+            />
+          </div>
+
+          {/* Form Header */}
+          <div className="text-center mb-6">
+            <h1 className="font-display-lg text-2xl font-bold text-on-surface tracking-tight mb-2">Welcome Back</h1>
+            <p className="font-body-sm text-xs text-on-surface-variant">Sign in to continue your immersive learning journey</p>
           </div>
 
           {/* Login Form */}
-          <form className="w-full space-y-4" onSubmit={handleSubmit}>
+          <form className="w-full" onSubmit={handleSubmit}>
             {error && (
-              <div className="bg-error-container/20 border border-error/30 text-error rounded p-3 text-xs flex items-center gap-2">
-                <span className="material-symbols-outlined text-[16px]">error</span>
+              <div className="bg-error-container/10 border border-error/20 text-error rounded-xl p-3.5 text-xs flex items-center gap-2 mb-4">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
                 <span>{error}</span>
               </div>
             )}
 
             {/* Email Input */}
-            <div className="space-y-1.5">
-              <label className="font-code-sm text-[11px] text-on-surface-variant block" htmlFor="email">Email Address</label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">mail</span>
-                <input 
-                  className="w-full bg-surface-container-lowest border border-outline-variant rounded py-2 pl-10 pr-3 font-body-md text-sm text-on-surface placeholder-on-surface-variant/40 input-glow transition-all duration-200" 
-                  id="email" 
-                  name="email" 
-                  placeholder="developer@multiverse.io" 
-                  required 
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
+            <div className="relative mb-4">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center justify-center text-on-surface-variant/70">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="4" width="20" height="16" rx="2" />
+                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                </svg>
+              </span>
+              <input 
+                className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-2xl py-3.5 pl-12 pr-4 font-body-md text-xs text-on-surface placeholder-on-surface-variant/50 focus:border-[#6366f1] focus:ring-2 focus:ring-[#6366f1]/20 outline-none transition-all duration-200" 
+                id="email" 
+                name="email" 
+                placeholder="Email address" 
+                required 
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
 
             {/* Password Input */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center">
-                <label className="font-code-sm text-[11px] text-on-surface-variant block" htmlFor="password">Password</label>
-                <a className="font-code-sm text-[11px] text-primary hover:text-primary-fixed transition-colors" href="#">Forgot?</a>
-              </div>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">lock</span>
-                <input 
-                  className="w-full bg-surface-container-lowest border border-outline-variant rounded py-2 pl-10 pr-10 font-body-md text-sm text-on-surface placeholder-on-surface-variant/40 input-glow transition-all duration-200" 
-                  id="password" 
-                  name="password" 
-                  placeholder="••••••••" 
-                  required 
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-                <button 
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none" 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  <span className="material-symbols-outlined text-[18px]">
-                    {showPassword ? 'visibility_off' : 'visibility'}
-                  </span>
-                </button>
-              </div>
+            <div className="relative mb-4">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center justify-center text-on-surface-variant/70">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </span>
+              <input 
+                className="w-full bg-surface-container-lowest border border-outline-variant/60 rounded-2xl py-3.5 pl-12 pr-12 font-body-md text-xs text-on-surface placeholder-on-surface-variant/50 focus:border-[#6366f1] focus:ring-2 focus:ring-[#6366f1]/20 outline-none transition-all duration-200" 
+                id="password" 
+                name="password" 
+                placeholder="Password" 
+                required 
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button 
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant/70 hover:text-on-surface transition-colors focus:outline-none cursor-pointer flex items-center justify-center" 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                    <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                    <path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                    <line x1="2" y1="2" x2="22" y2="22" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </button>
             </div>
 
-            {/* Remember Me */}
-            <div className="flex items-center pt-1">
-              <input 
-                className="h-4 w-4 rounded bg-surface-container-lowest border-outline-variant text-primary focus:ring-primary focus:ring-offset-surface-container-lowest focus:ring-offset-2" 
-                id="remember-me" 
-                name="remember-me" 
-                type="checkbox"
-              />
-              <label className="ml-2 block font-body-sm text-[12px] text-on-surface-variant" htmlFor="remember-me">
-                Remember session
+            {/* Remember Me / Forgot Password */}
+            <div className="flex justify-between items-center w-full text-xs font-body-sm mb-6">
+              <label className="flex items-center gap-2 text-on-surface-variant cursor-pointer select-none">
+                <input 
+                  className="h-4 w-4 rounded bg-surface-container-lowest border-outline-variant/60 text-primary focus:ring-primary focus:ring-offset-surface focus:ring-offset-2" 
+                  id="remember-me" 
+                  name="remember-me" 
+                  type="checkbox"
+                />
+                <span>Remember me</span>
               </label>
+              <a className="text-[#6366f1] hover:underline font-semibold transition-colors" href="#">Forgot password?</a>
             </div>
 
             {/* Submit Button */}
             <button 
-              className="w-full mt-6 bg-primary hover:bg-primary-fixed text-on-primary font-headline-sm text-sm py-2.5 px-4 rounded transition-colors duration-200 flex justify-center items-center gap-2 cursor-pointer disabled:opacity-50" 
+              className="w-full bg-[#6366f1] hover:bg-[#5053e1] text-white font-headline-sm text-xs py-3.5 rounded-2xl font-bold transition-all duration-200 cursor-pointer flex justify-center items-center gap-2 shadow-lg shadow-[#6366f1]/25 hover:shadow-xl hover:shadow-[#6366f1]/35 disabled:opacity-50 disabled:cursor-not-allowed" 
               type="submit"
               disabled={loading}
             >
-              <span>{loading ? 'Initializing...' : 'Initialize Environment'}</span>
-              <span className="material-symbols-outlined text-[18px]">login</span>
+              <span>{loading ? 'Signing In...' : 'Sign In'}</span>
             </button>
           </form>
 
-          {/* Footer Links */}
-          <div className="mt-8 text-center">
-            <p className="font-body-sm text-xs text-on-surface-variant">
-              No access token yet?{' '}
-              <Link className="text-primary hover:text-primary-fixed font-semibold transition-colors" to="/signup">
-                Request Alpha Access
-              </Link>
-            </p>
+          {/* Separator */}
+          <div className="flex items-center gap-4 my-6 w-full">
+            <div className="flex-1 h-px bg-outline-variant/30"></div>
+            <span className="text-[10px] font-code-sm uppercase tracking-wider text-on-surface-variant/70">or</span>
+            <div className="flex-1 h-px bg-outline-variant/30"></div>
           </div>
+
+          {/* Google Sign-in */}
+          <button 
+            type="button"
+            className="w-full bg-surface hover:bg-surface-container-high border border-outline-variant/60 text-on-surface font-headline-sm text-xs py-3.5 rounded-2xl font-semibold transition-all duration-200 cursor-pointer flex justify-center items-center gap-2.5 shadow-sm hover:shadow"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            <span>Continue with Google</span>
+          </button>
+
+          {/* Footer Links */}
+          <div className="mt-8 text-center text-xs font-body-sm text-on-surface-variant">
+            Don't have an account?{' '}
+            <Link className="text-[#6366f1] hover:underline font-bold transition-colors" to="/signup">
+              Sign up
+            </Link>
+          </div>
+          
         </div>
       </main>
     </div>

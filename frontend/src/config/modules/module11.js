@@ -33,26 +33,33 @@ export const module11 = {
   },
   handsOn: {
     task: 'Build a scene with two or more objects, at least one parent-child relationship, at least one interaction, and at least one physics-enabled object.',
-    starterCode: `// Your first complete XR scene
-// Use positioning, parenting, lighting, interaction, and physics.
-box1.position.x = 0
-box1.position.y = 1
-box1.position.z = 0
+    starterCode: `using UnityEngine;
 
-box2.position.x = 2
-box2.position.y = 1
-box2.position.z = 0
+public class CapstoneController : MonoBehaviour
+{
+    public GameObject box1;
+    public GameObject box2;
+    public Rigidbody ballRigidbody;
+    public Light sceneLight;
 
-scene.setParent(box2, box1)
-light.intensity = 1.0
-
-box1.onClick(function() {
-  // make the object react to interaction
-})
-
-ball.setGravity(9.8)
-ball.setRestitution(0.8)
-ball.applyForce(0, 2, 0)`,
+    void Start()
+    {
+        // Your first complete XR scene
+        // Use positioning, parenting, lighting, interaction, and physics.
+        box1.transform.position = new Vector3(0f, 1f, 0f);
+        box2.transform.position = new Vector3(2f, 1f, 0f);
+        
+        box2.transform.SetParent(box1.transform);
+        sceneLight.intensity = 1.0f;
+        
+        // box1.OnClick(() => {
+        //   // make the object react to interaction
+        // });
+        
+        Physics.gravity = new Vector3(0, -9.8f, 0);
+        ballRigidbody.AddForce(new Vector3(0, 2f, 0), ForceMode.Impulse);
+    }
+}`,
     scene: {
       objects: [
         { id: 'box1', type: 'box', position: [0, 0.5, 0], color: '#4488ff', size: [1, 1, 1] },
