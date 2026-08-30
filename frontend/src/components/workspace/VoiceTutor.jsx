@@ -315,10 +315,10 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
     ? { position: 'fixed', left: pos.x, top: pos.y, transform: 'none', zIndex: 50 }
     : { position: 'fixed', bottom: '1.5rem', left: '50%', transform: 'translateX(-50%)', zIndex: 50 }
 
-  // ── Floating Button styling (draggable position fallback to bottom center) ──
+  // ── Floating Button styling (draggable position fallback to bottom right) ──
   const triggerStyle = btnPos.x !== null
     ? { position: 'fixed', left: btnPos.x, top: btnPos.y, transform: 'none', zIndex: 50 }
-    : { position: 'fixed', bottom: '1.5rem', left: '50%', transform: 'translateX(-50%)', zIndex: 50 }
+    : { position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 50 }
 
   return (
     <>
@@ -329,7 +329,7 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
         <div style={triggerStyle} ref={triggerRef} className="relative select-none">
           {/* Notification bubble (Hey I'm Loki) */}
           {showNotification && (
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[260px] bg-surface border border-[#6366f1]/30 p-3 rounded-2xl shadow-xl flex items-start gap-2 animate-bounce z-[60]">
+            <div className="absolute bottom-full right-0 mb-4 w-[260px] bg-surface border border-[#6366f1]/30 p-3 rounded-2xl shadow-xl flex items-start gap-2 z-[60] origin-bottom-right transition-all">
               {/* Green Loki Crown / Magic Icon */}
               <div className="w-6 h-6 rounded-full bg-[#10b981]/20 flex items-center justify-center shrink-0 mt-0.5 text-[#10b981]">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -355,23 +355,22 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
                 &times;
               </button>
               {/* Tooltip arrow pointer */}
-              <div className="absolute top-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-t-surface drop-shadow-[0_1px_0_rgba(99,102,241,0.2)]" />
+              <div className="absolute top-full right-6 border-[8px] border-transparent border-t-surface drop-shadow-[0_1px_0_rgba(99,102,241,0.2)]" />
             </div>
           )}
 
-          {/* Launcher Button */}
+          {/* Launcher Button (Big Icon Only) */}
           <button
             id="voice-tutor-open"
             onMouseDown={onBtnDragStart}
             title="Loki Voice Assistant (Drag to Move)"
-            className="flex items-center gap-2 bg-[#6366f1] hover:bg-[#5053e1] text-white font-bold text-xs py-2.5 px-5 rounded-2xl shadow-lg shadow-[#6366f1]/30 hover:shadow-xl hover:shadow-[#6366f1]/40 transition-all duration-200 cursor-grab active:cursor-grabbing"
+            className="w-16 h-16 bg-[#6366f1] hover:bg-[#5053e1] text-white rounded-full shadow-[0_8px_30px_rgba(99,102,241,0.4)] hover:shadow-[0_12px_40px_rgba(99,102,241,0.6)] transition-all duration-300 cursor-grab active:cursor-grabbing flex items-center justify-center border-[3px] border-surface"
           >
-            {/* Crown Icon representing Loki (mischievous Norse helper theme) */}
-            <svg className="w-4 h-4 text-emerald-300" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            {/* Crown Icon representing Loki */}
+            <svg className="w-8 h-8 text-emerald-300" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M3 20h18" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            Loki Voice Assistant
           </button>
         </div>
       )}
