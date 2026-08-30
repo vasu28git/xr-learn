@@ -78,14 +78,6 @@ export const api = {
       });
     }
   },
-  ai: {
-    async tutor(contextPacket) {
-      return fetchAPI('/ai-tutor', {
-        method: 'POST',
-        body: JSON.stringify(contextPacket),
-      });
-    }
-  },
   execute: {
     async run(source) {
       return fetchAPI('/execute', {

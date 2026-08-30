@@ -1,12 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSandbox } from '../../hooks/useSandbox'
-import { useAI } from '../../hooks/useAI'
 import { checkCompletion } from '../../utils/checkCompletion'
 import { api } from '../../lib/api'
 import Scene from './Scene'
 import CodeEditor from './CodeEditor'
-import AIPanel from './AIPanel'
 import TheorySection from '../theory/TheorySection'
 import VoiceTutor from './VoiceTutor'
 
@@ -29,11 +27,7 @@ export default function Workspace({ moduleId, moduleConfig, user, onComplete, on
   // Collapsible Guide Sidebar
   const [isLeftCollapsed, setIsLeftCollapsed] = useState(false)
 
-  // Fullscreen Visualizer State
   const [isVisualizerFullscreen, setIsVisualizerFullscreen] = useState(false)
-
-  const { messages, sendMessage, isLoading, showHintPrompt, setShowHintPrompt, setFailedAttempts } =
-    useAI(moduleId, sceneState, moduleConfig.handsOn.targetState, currentCode, lastError)
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -83,18 +77,7 @@ export default function Workspace({ moduleId, moduleConfig, user, onComplete, on
   const handleRunCode = useCallback(() => {
     setAttempts(prev => prev + 1)
     runCode(currentCode)
-
-    setTimeout(() => {
-      const isComplete = checkCompletion(
-        moduleId,
-        sceneState,
-        moduleConfig.handsOn.targetState
-      )
-      if (!isComplete) {
-        setFailedAttempts(prev => prev + 1)
-      }
-    }, 100)
-  }, [currentCode, runCode, moduleId, sceneState, moduleConfig.handsOn.targetState, setFailedAttempts])
+  }, [currentCode, runCode])
 
   const handleResetCode = () => {
     if (window.confirm('Reset code to starter template?')) {
@@ -476,25 +459,12 @@ export default function Workspace({ moduleId, moduleConfig, user, onComplete, on
               </div>
             </div>
 
-            {/* Canvas Scene */}
             <Scene
               moduleId={moduleId}
               sceneState={sceneState}
               moduleConfig={moduleConfig}
               onObjectClick={handleSceneClick}
             />
-
-            {/* Floating AI Panel (Collapsible) in bottom-right of canvas area */}
-            <div className="absolute bottom-4 right-4 z-20 flex flex-col items-end gap-2">
-              <AIPanel
-                messages={messages}
-                onSendMessage={sendMessage}
-                isLoading={isLoading}
-                showHintPrompt={showHintPrompt}
-                onDismissHint={() => setShowHintPrompt(false)}
-                moduleId={moduleId}
-              />
-            </div>
 
           </div>
 
