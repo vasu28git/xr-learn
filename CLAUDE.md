@@ -1,160 +1,180 @@
-Implement an AI Voice Tutor in the EXISTING Learning module using Gemini as the AI brain and ElevenLabs as the voice layer.
+Update the existing AI Tutor implementation with the following improvements.
 
 IMPORTANT:
-Do not rebuild, redesign, or replace my existing application.
-Inspect the existing frontend and backend first and integrate into the current architecture.
+Do not rebuild the feature. Modify the existing implementation.
 
-FEATURE:
+1. SUPPORT BOTH VOICE AND TEXT
 
-Add a single 🎙️ AI Tutor button to the Learning module only.
+The AI Tutor must support two ways of asking questions:
 
-When the user clicks it:
+- 🎙️ Voice input
+- ⌨️ Text input
 
-1. Open a small conversational voice panel.
-2. AI initially says:
-   "Hi! How can I help you?"
-3. User speaks a question.
-4. Convert the user's speech to text.
-5. Send the question to the backend.
-6. Backend sends Gemini:
-   - Current lesson/module content
-   - Current C# code from the editor
-   - Previous conversation history
-   - User's latest question
-7. Gemini generates a helpful educational response.
-8. Display the response as text.
-9. Send the response to ElevenLabs for natural voice playback.
-10. Allow the user to continue asking follow-up questions.
-11. Provide a Stop/End Conversation button.
+The user should be able to:
+- Click the microphone and speak.
+- Type a question in a text input.
+- Press Enter or click Send.
+- Continue switching between voice and text during the same conversation.
 
-ARCHITECTURE:
+Both inputs must go through the same Gemini AI Tutor backend.
 
-User 🎙️
-   ↓
-Speech → Text
-   ↓
-Backend
-   ↓
-Gemini AI Tutor
-   ↑
-Lesson Content
-Current C# Code
-Conversation History
-   ↓
-AI Response
-   ↓
-ElevenLabs Text → Speech
-   ↓
-🔊 User
+Example:
 
-AI BEHAVIOR:
+User 🎙️ → Speech-to-Text → Gemini
+User ⌨️ → Text → Gemini
 
-Gemini should act as a tutor, not just an answer generator.
+The conversation history must be shared between both modes.
 
-It should:
-- Explain the current lesson.
-- Answer questions about the student's C# code.
-- Explain errors clearly.
-- Give hints and guidance.
-- Use the current lesson as context.
-- Maintain conversation context.
-- Encourage the student to understand the concept.
-- Avoid unnecessarily giving the complete solution when guidance is sufficient.
+2. DRAGGABLE AI TUTOR
 
-CONTEXT EXAMPLE:
+The AI Tutor panel must be draggable.
 
-{
-  "lesson": "Current lesson content",
-  "code": "Current C# code",
-  "conversation": [
-    {"role": "user", "content": "..."},
-    {"role": "assistant", "content": "..."}
-  ],
-  "question": "Latest user question"
-}
+The user should be able to drag the panel anywhere within the application.
 
-SECURITY:
+Use a drag handle/header so normal text, buttons, microphone, and input fields remain usable.
 
-- Gemini and ElevenLabs API keys must remain on the backend.
-- Never expose API keys in frontend code.
-- Never use eval() or execute arbitrary C# through the voice feature.
-- Reuse the existing backend/API architecture.
+The panel should remember its position while navigating within the current session.
 
-UI:
+Do not allow it to become permanently stuck behind the editor or outside the visible application area.
 
-Keep the existing Learning 3-pane layout:
+3. EDUCATIONAL SPEAKING SPEED
 
-Left   → Module Content
-Center → C# Code Editor
-Right  → Three.js 3D Output
+Make the ElevenLabs voice noticeably slower and easier to understand for students.
 
-The AI Tutor should appear as a compact floating button/panel without disrupting these panes.
+Use an appropriate slower speech configuration.
 
-The panel should show:
-- User transcription
-- AI response
-- Listening state
-- Processing state
-- Speaking state
-- Stop/end button
+The voice should sound:
+- Clear
+- Calm
+- Natural
+- Educational
+- Slightly slower than normal conversational speech
 
-IMPORTANT MODULE RULE:
+Do not make it unnaturally slow.
 
-Voice AI is ONLY for Learning.
+4. CLEAN AI TEXT OUTPUT
 
-Do NOT add the voice assistant to:
-- Training
-- Debugging
+Gemini responses must contain ONLY clean readable text.
 
-INTEGRATION:
+Do NOT generate or display Markdown formatting such as:
 
-Inspect the existing project and find:
-- Learning module
-- Module content state
-- Existing C# editor
-- Existing backend/API services
-- Existing authentication if applicable
-- Existing environment variable configuration
+**
+*
+#
+##
+---
 
-Reuse existing components and services wherever possible.
+or other formatting characters that would look bad when spoken aloud.
 
-Do not create duplicate editors, duplicate backend servers, or duplicate state management.
+For example, instead of:
 
-Also make sure the AI can access the student's CURRENT editor code when answering code-related questions.
+**Vector3** represents three values.
 
-ENVIRONMENT VARIABLES:
+Generate:
 
-Add the required backend environment variables for:
-- Gemini API key
-- ElevenLabs API key
-- ElevenLabs voice/configuration
+Vector3 represents three values.
 
-Do not hardcode secrets.
+Instead of:
 
-TEST:
+### How it works
 
-Verify this complete flow:
+Generate:
 
-Click AI Tutor
-→ AI greeting
-→ User speaks
-→ Speech converted to text
-→ Backend receives question
-→ Gemini receives lesson + code + conversation
-→ Gemini generates response
-→ Response displayed
-→ ElevenLabs generates voice
-→ User hears response
-→ User asks follow-up
-→ Conversation continues.
+How it works
 
-After implementation, build/run the frontend and backend, fix errors, and report:
+The AI response should be plain text suitable for BOTH:
+- Displaying in the chat panel
+- Sending directly to ElevenLabs for speech
 
-1. Files modified
-2. Files created
-3. API endpoints added
-4. Gemini integration
-5. ElevenLabs integration
-6. Environment variables required
-7. How the Learning module passes lesson/code context
-8. Exact commands to run the application.
+5. CLEAN TEXT SANITIZATION
+
+Even if Gemini accidentally returns Markdown, sanitize the response before displaying and speaking it.
+
+Remove:
+- Bold markers **
+- Italic markers *
+- Heading markers #
+- Markdown code fences
+- Unnecessary bullet symbols
+- Markdown links
+- Other formatting characters that would be spoken aloud
+
+Do NOT remove meaningful programming syntax from code explanations.
+
+For example, do not corrupt:
+
+xr.CreateCube("box", new Vector3(0, 1, 0));
+
+Only sanitize the AI's conversational response.
+
+6. AI RESPONSE STYLE
+
+Configure the Gemini system prompt so the tutor naturally responds in plain text.
+
+Tell Gemini:
+
+"You are an educational AI tutor. Respond using plain text only. Do not use Markdown, bold text, headings, bullet symbols, code fences, or decorative formatting. Explain concepts clearly and conversationally. Keep explanations easy to understand for students. When discussing code, preserve code syntax accurately."
+
+7. EXISTING CONTEXT
+
+Keep the existing context system:
+
+- Current lesson content
+- Current C# code
+- Conversation history
+- User's latest question
+
+The AI should continue answering questions about the current lesson and student's code.
+
+8. FINAL UX
+
+The tutor should work like this:
+
+🎙️ AI Tutor button
+        ↓
+Draggable conversation panel
+
+"Hi! How can I help you?"
+
+        ↓
+
+┌──────────────────────────────┐
+│ AI Tutor              ↕ Drag │
+│                              │
+│ AI: How can I help you?      │
+│                              │
+│ You: What is Vector3?        │
+│                              │
+│ AI: Vector3 represents three │
+│ values used to describe a    │
+│ position in 3D space...      │
+│                              │
+│ [Type your question...] 🎙️  │
+│                    Send      │
+└──────────────────────────────┘
+
+The panel must support:
+- Voice questions
+- Typed questions
+- Follow-up conversation
+- AI voice responses
+- Text responses
+- Stop speaking
+- End conversation
+- Dragging anywhere in the application
+
+Keep the existing Learning 3-pane layout unchanged.
+
+Voice Tutor remains available ONLY in Learning, not Training or Debugging.
+
+After implementation, test:
+1. Voice question
+2. Typed question
+3. Voice → text follow-up
+4. Text → voice follow-up
+5. Dragging the panel
+6. Slow voice playback
+7. Gemini response containing no Markdown
+8. Markdown sanitization fallback
+9. Current lesson context
+10. Current C# code context

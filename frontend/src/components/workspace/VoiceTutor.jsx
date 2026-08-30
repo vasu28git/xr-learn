@@ -1,19 +1,35 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { api } from '../../lib/api'
 
-const GREETING = "Hi! I'm your AI tutor for this lesson. How can I help you?"
+const GREETING = "Hi! How can I help you?"
 
-/**
- * Converts theory sections array to readable plaintext for context injection.
- */
+/** Convert theory sections array to plain readable text */
 function sectionsToText(sections = []) {
   return sections
     .map(s => {
-      if (s.type === 'heading') return `\n## ${s.content}`
-      if (s.type === 'list') return (s.items || []).map(i => `- ${i}`).join('\n')
+      if (s.type === 'heading') return s.content
+      if (s.type === 'list') return (s.items || []).join('. ')
       return s.content || ''
     })
     .join('\n')
+}
+
+/** Client-side Markdown sanitizer as a safety net */
+function sanitize(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/_(.+?)_/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^---+$/gm, '')
+    .replace(/```[\w]*\n?([\s\S]*?)```/g, '$1')
+    .replace(/`(.+?)`/g, '$1')
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 export default function VoiceTutor({ moduleConfig, currentCode }) {
@@ -21,12 +37,20 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
   const [status, setStatus] = useState('idle') // idle | listening | processing | speaking
   const [transcript, setTranscript] = useState('')
   const [conversation, setConversation] = useState([])
+  const [textInput, setTextInput] = useState('')
   const [error, setError] = useState(null)
+
+  // Drag state
+  const [pos, setPos] = useState({ x: null, y: null }) // null = centered (default)
+  const [dragging, setDragging] = useState(false)
+  const dragOffset = useRef({ x: 0, y: 0 })
+  const panelRef = useRef(null)
 
   const recognitionRef = useRef(null)
   const audioRef = useRef(null)
   const chatBodyRef = useRef(null)
   const hasGreeted = useRef(false)
+  const textInputRef = useRef(null)
 
   // Auto-scroll conversation
   useEffect(() => {
@@ -44,24 +68,56 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
     }
   }, [isOpen])
 
-  // Clean up speech recognition on unmount
+  // Clean up on unmount
   useEffect(() => {
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort()
-      }
-      if (audioRef.current) {
-        audioRef.current.pause()
-      }
+      if (recognitionRef.current) recognitionRef.current.abort()
+      if (audioRef.current) audioRef.current.pause()
     }
   }, [])
 
+  // ── Drag logic ────────────────────────────────────────────────────────────
+  const onDragStart = useCallback((e) => {
+    if (!panelRef.current) return
+    const rect = panelRef.current.getBoundingClientRect()
+    dragOffset.current = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    }
+    setDragging(true)
+    e.preventDefault()
+  }, [])
+
+  useEffect(() => {
+    if (!dragging) return
+    const onMove = (e) => {
+      const newX = e.clientX - dragOffset.current.x
+      const newY = e.clientY - dragOffset.current.y
+      // Clamp inside viewport
+      const panel = panelRef.current
+      if (!panel) return
+      const w = panel.offsetWidth
+      const h = panel.offsetHeight
+      setPos({
+        x: Math.min(Math.max(newX, 0), window.innerWidth - w),
+        y: Math.min(Math.max(newY, 0), window.innerHeight - h)
+      })
+    }
+    const onUp = () => setDragging(false)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [dragging])
+
+  // ── TTS ───────────────────────────────────────────────────────────────────
   const speakText = useCallback(async (text) => {
     setStatus('speaking')
     try {
       const audioBlob = await api.voiceTutor.tts(text)
       if (!audioBlob) {
-        // ElevenLabs not configured — just show text
         setStatus('idle')
         return
       }
@@ -76,19 +132,22 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
         }
       }
     } catch (err) {
-      console.warn('TTS failed, falling back to text only:', err)
+      console.warn('TTS failed, text-only mode:', err)
       setStatus('idle')
     }
   }, [])
 
+  // ── Send question (shared between voice & text) ───────────────────────────
   const sendQuestion = useCallback(async (question) => {
-    if (!question.trim()) return
+    const q = question.trim()
+    if (!q || status === 'processing') return
 
     setStatus('processing')
     setError(null)
 
     const lessonContent = sectionsToText(moduleConfig?.theory?.sections)
-    const updatedHistory = [...conversation, { role: 'user', content: question }]
+    const userMsg = { role: 'user', content: q }
+    const updatedHistory = [...conversation, userMsg]
     setConversation(updatedHistory)
 
     try {
@@ -96,82 +155,79 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
         lessonContent,
         code: currentCode || '',
         history: conversation,
-        question
+        question: q
       })
 
-      const newHistory = [...updatedHistory, { role: 'assistant', content: message }]
-      setConversation(newHistory)
-      await speakText(message)
+      const clean = sanitize(message)
+      setConversation([...updatedHistory, { role: 'assistant', content: clean }])
+      await speakText(clean)
     } catch (err) {
-      const errMsg = 'Sorry, I had trouble responding. Please try again.'
-      setError(errMsg)
+      setError('Sorry, I had trouble responding. Please try again.')
       setStatus('idle')
     }
-  }, [conversation, moduleConfig, currentCode, speakText])
+  }, [conversation, moduleConfig, currentCode, speakText, status])
 
+  // ── Text input submit ─────────────────────────────────────────────────────
+  const handleTextSubmit = (e) => {
+    e?.preventDefault()
+    if (!textInput.trim()) return
+    sendQuestion(textInput)
+    setTextInput('')
+  }
+
+  // ── Voice input ───────────────────────────────────────────────────────────
   const startListening = useCallback(() => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      setError('Speech recognition is not supported in this browser. Try Chrome or Edge.')
+      setError('Speech recognition is not supported in this browser. Please use Chrome or Edge.')
       return
     }
+    if (status !== 'idle') return
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
-    const recognition = new SpeechRecognition()
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    const recognition = new SR()
     recognition.lang = 'en-US'
     recognition.interimResults = true
     recognition.continuous = false
-    recognition.maxAlternatives = 1
-
     recognitionRef.current = recognition
     setTranscript('')
     setStatus('listening')
     setError(null)
 
+    let finalText = ''
+
     recognition.onresult = (e) => {
-      const text = Array.from(e.results)
-        .map(r => r[0].transcript)
-        .join('')
-      setTranscript(text)
+      let interim = ''
+      finalText = ''
+      for (const result of e.results) {
+        if (result.isFinal) finalText += result[0].transcript
+        else interim += result[0].transcript
+      }
+      setTranscript(finalText || interim)
     }
 
     recognition.onend = () => {
-      const finalTranscript = recognitionRef.current?._finalTranscript
-      if (finalTranscript) {
-        sendQuestion(finalTranscript)
-        setTranscript('')
+      setTranscript('')
+      if (finalText.trim()) {
+        sendQuestion(finalText)
       } else {
         setStatus('idle')
       }
     }
 
     recognition.onerror = (e) => {
-      if (e.error === 'no-speech') {
-        setError('No speech detected. Try again.')
-      } else if (e.error !== 'aborted') {
+      if (e.error !== 'aborted' && e.error !== 'no-speech') {
         setError(`Microphone error: ${e.error}`)
+      } else if (e.error === 'no-speech') {
+        setError('No speech detected. Try again.')
       }
       setStatus('idle')
     }
 
-    // Capture final transcript before onend fires
-    recognition.onresult = (e) => {
-      let interim = ''
-      let final = ''
-      for (const result of e.results) {
-        if (result.isFinal) final += result[0].transcript
-        else interim += result[0].transcript
-      }
-      setTranscript(final || interim)
-      recognition._finalTranscript = final || interim
-    }
-
     recognition.start()
-  }, [sendQuestion])
+  }, [status, sendQuestion])
 
   const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop()
-    }
+    recognitionRef.current?.stop()
   }, [])
 
   const stopSpeaking = useCallback(() => {
@@ -188,27 +244,34 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
     setIsOpen(false)
     setConversation([])
     setTranscript('')
+    setTextInput('')
     setStatus('idle')
     setError(null)
     hasGreeted.current = false
   }
 
-  const statusConfig = {
-    idle: { label: 'Ready', color: 'text-on-surface-variant', dot: 'bg-on-surface-variant/40' },
-    listening: { label: 'Listening...', color: 'text-emerald-500', dot: 'bg-emerald-500 animate-pulse' },
-    processing: { label: 'Thinking...', color: 'text-[#6366f1]', dot: 'bg-[#6366f1] animate-ping' },
-    speaking: { label: 'Speaking...', color: 'text-amber-500', dot: 'bg-amber-500 animate-pulse' },
+  // ── Status config ─────────────────────────────────────────────────────────
+  const statusMap = {
+    idle:       { label: 'Ready',        dotCls: 'bg-on-surface-variant/40',     textCls: 'text-on-surface-variant' },
+    listening:  { label: 'Listening…',   dotCls: 'bg-emerald-500 animate-pulse', textCls: 'text-emerald-500' },
+    processing: { label: 'Thinking…',    dotCls: 'bg-[#6366f1] animate-ping',    textCls: 'text-[#6366f1]' },
+    speaking:   { label: 'Speaking…',    dotCls: 'bg-amber-500 animate-pulse',   textCls: 'text-amber-500' },
   }
-  const currentStatus = statusConfig[status]
+  const st = statusMap[status]
+
+  // ── Panel positioning (fixed center by default, then user-dragged) ────────
+  const panelStyle = pos.x !== null
+    ? { position: 'fixed', left: pos.x, top: pos.y, transform: 'none', zIndex: 50 }
+    : { position: 'fixed', bottom: '1.5rem', left: '50%', transform: 'translateX(-50%)', zIndex: 50 }
 
   return (
     <>
-      {/* Hidden audio element for ElevenLabs playback */}
       <audio ref={audioRef} hidden />
 
-      {/* Floating 🎙️ toggle button */}
+      {/* ── Floating trigger button ── */}
       {!isOpen && (
         <button
+          id="voice-tutor-open"
           onClick={() => setIsOpen(true)}
           title="AI Voice Tutor"
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-[#6366f1] hover:bg-[#5053e1] text-white font-bold text-xs py-2.5 px-5 rounded-2xl shadow-lg shadow-[#6366f1]/30 hover:shadow-xl hover:shadow-[#6366f1]/40 transition-all duration-200 cursor-pointer"
@@ -221,41 +284,55 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
         </button>
       )}
 
-      {/* Voice Tutor Panel */}
+      {/* ── Tutor panel ── */}
       {isOpen && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[380px] max-w-[calc(100vw-2rem)] bg-surface border border-outline-variant/60 rounded-3xl shadow-2xl shadow-black/30 flex flex-col overflow-hidden transition-all duration-300">
-          {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 bg-[#6366f1]/10 border-b border-[#6366f1]/20">
+        <div
+          ref={panelRef}
+          style={panelStyle}
+          className="w-[400px] max-w-[calc(100vw-1rem)] bg-surface border border-outline-variant/60 rounded-3xl shadow-2xl shadow-black/30 flex flex-col overflow-hidden select-none"
+        >
+          {/* ── Drag handle / Header ── */}
+          <div
+            id="voice-tutor-drag-handle"
+            onMouseDown={onDragStart}
+            className="flex items-center justify-between px-5 py-3.5 bg-[#6366f1]/10 border-b border-[#6366f1]/20 cursor-grab active:cursor-grabbing"
+          >
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-[#6366f1]/20 flex items-center justify-center">
-                <svg className="w-4 h-4 text-[#6366f1]" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <div className="w-7 h-7 rounded-full bg-[#6366f1]/20 flex items-center justify-center shrink-0">
+                <svg className="w-3.5 h-3.5 text-[#6366f1]" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3Z" />
                   <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8" />
                 </svg>
               </div>
               <div>
-                <p className="font-bold text-xs text-on-surface">AI Voice Tutor</p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${currentStatus.dot}`} />
-                  <span className={`text-[10px] font-semibold ${currentStatus.color}`}>{currentStatus.label}</span>
+                <p className="font-bold text-xs text-on-surface leading-none">AI Voice Tutor</p>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className={`w-1.5 h-1.5 rounded-full ${st.dotCls}`} />
+                  <span className={`text-[10px] font-semibold ${st.textCls}`}>{st.label}</span>
                 </div>
               </div>
             </div>
-            <button
-              onClick={handleClose}
-              className="text-on-surface-variant hover:text-on-surface p-1.5 rounded-xl hover:bg-surface-container-high transition-colors cursor-pointer"
-              title="End conversation"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path d="M18 6L6 18M6 6l12 12" />
+            {/* Drag hint + close */}
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-on-surface-variant/50" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M12 3v18M3 12h18" />
               </svg>
-            </button>
+              <button
+                onMouseDown={e => e.stopPropagation()}
+                onClick={handleClose}
+                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg hover:bg-surface-container-high transition-colors cursor-pointer"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
-          {/* Conversation */}
+          {/* ── Conversation ── */}
           <div
             ref={chatBodyRef}
-            className="flex-1 overflow-y-auto p-4 space-y-3 max-h-60 min-h-[120px]"
+            className="flex-1 overflow-y-auto p-4 space-y-3 max-h-64 min-h-[100px]"
           >
             {conversation.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -268,12 +345,13 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
                 </div>
               </div>
             ))}
+            {/* Thinking animation */}
             {status === 'processing' && (
               <div className="flex justify-start">
                 <div className="bg-surface-container-high border border-outline-variant/40 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#6366f1] animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#6366f1] animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#6366f1] animate-bounce" style={{ animationDelay: '300ms' }} />
+                  {[0, 150, 300].map(d => (
+                    <span key={d} className="w-1.5 h-1.5 rounded-full bg-[#6366f1] animate-bounce" style={{ animationDelay: `${d}ms` }} />
+                  ))}
                 </div>
               </div>
             )}
@@ -281,75 +359,88 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
 
           {/* Live transcript */}
           {transcript && (
-            <div className="mx-4 mb-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+            <div className="mx-4 mb-1 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
               🎙️ {transcript}
             </div>
           )}
 
           {/* Error banner */}
           {error && (
-            <div className="mx-4 mb-2 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-xl text-[11px] text-red-500 font-medium">
+            <div className="mx-4 mb-1 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-xl text-[11px] text-red-500 font-medium">
               {error}
             </div>
           )}
 
-          {/* Controls */}
-          <div className="px-4 py-4 border-t border-outline-variant/40 flex items-center gap-3">
+          {/* ── Input row ── */}
+          <div className="px-4 py-3 border-t border-outline-variant/40 flex items-center gap-2" onMouseDown={e => e.stopPropagation()}>
+            {/* Text input */}
+            <form onSubmit={handleTextSubmit} className="flex-1 flex items-center gap-2 bg-surface-container-high rounded-2xl px-3 py-2 border border-outline-variant/40">
+              <input
+                ref={textInputRef}
+                value={textInput}
+                onChange={e => setTextInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleTextSubmit()}
+                placeholder="Type your question…"
+                disabled={status === 'processing'}
+                className="flex-1 bg-transparent text-xs text-on-surface placeholder-on-surface-variant/60 outline-none min-w-0"
+              />
+              <button
+                type="submit"
+                disabled={!textInput.trim() || status === 'processing'}
+                className="text-[#6366f1] hover:text-[#5053e1] disabled:opacity-30 transition-colors cursor-pointer shrink-0"
+                title="Send"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7Z" />
+                </svg>
+              </button>
+            </form>
+
+            {/* Voice button / Stop speaking */}
             {status === 'idle' && (
               <button
                 onClick={startListening}
-                className="flex-1 bg-[#6366f1] hover:bg-[#5053e1] text-white font-bold text-xs py-3 rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-[#6366f1]/25 transition-all cursor-pointer"
+                title="Speak a question"
+                className="w-10 h-10 rounded-2xl bg-[#6366f1] hover:bg-[#5053e1] text-white flex items-center justify-center shadow-md shadow-[#6366f1]/25 transition-all cursor-pointer shrink-0"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3Z" />
                   <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8" />
                 </svg>
-                Speak
               </button>
             )}
 
             {status === 'listening' && (
               <button
                 onClick={stopListening}
-                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs py-3 rounded-2xl flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer animate-pulse"
+                title="Stop recording"
+                className="w-10 h-10 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-md transition-all cursor-pointer animate-pulse shrink-0"
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                   <rect x="6" y="6" width="12" height="12" rx="2" />
                 </svg>
-                Stop Recording
               </button>
             )}
 
             {status === 'speaking' && (
               <button
                 onClick={stopSpeaking}
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-3 rounded-2xl flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+                title="Stop speaking"
+                className="w-10 h-10 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center shadow-md transition-all cursor-pointer shrink-0"
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                   <rect x="6" y="6" width="12" height="12" rx="2" />
                 </svg>
-                Stop Speaking
               </button>
             )}
 
             {status === 'processing' && (
-              <div className="flex-1 bg-surface-container-high border border-outline-variant/40 font-bold text-xs py-3 rounded-2xl flex items-center justify-center gap-2 text-on-surface-variant">
-                <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <div className="w-10 h-10 rounded-2xl bg-surface-container-high border border-outline-variant/40 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 animate-spin text-[#6366f1]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M21 12a9 9 0 11-6.219-8.56" />
                 </svg>
-                Thinking...
               </div>
             )}
-
-            <button
-              onClick={handleClose}
-              title="End conversation"
-              className="p-3 rounded-2xl border border-outline-variant/60 hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
-            </button>
           </div>
         </div>
       )}
