@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { api } from '../../lib/api'
 
-const GREETING = "Hi! How can I help you?"
+const GREETING = "Hi! I'm Loki, your AI tutor. How can I help you today?"
 
 /** Convert theory sections array to plain readable text */
 function sectionsToText(sections = []) {
@@ -40,11 +40,21 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
   const [textInput, setTextInput] = useState('')
   const [error, setError] = useState(null)
 
-  // Drag state
+  // Notification Bubble state
+  const [showNotification, setShowNotification] = useState(true)
+
+  // Drag state for the main panel
   const [pos, setPos] = useState({ x: null, y: null }) // null = centered (default)
   const [dragging, setDragging] = useState(false)
   const dragOffset = useRef({ x: 0, y: 0 })
   const panelRef = useRef(null)
+
+  // Drag state for the trigger button
+  const [btnPos, setBtnPos] = useState({ x: null, y: null }) // null = bottom centered (default)
+  const [btnDragging, setBtnDragging] = useState(false)
+  const btnDragOffset = useRef({ x: 0, y: 0 })
+  const btnStartPos = useRef({ x: 0, y: 0 })
+  const triggerRef = useRef(null)
 
   const recognitionRef = useRef(null)
   const audioRef = useRef(null)
@@ -76,7 +86,7 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
     }
   }, [])
 
-  // ── Drag logic ────────────────────────────────────────────────────────────
+  // ── Drag Logic (unified window listeners for both panel & trigger button) ──
   const onDragStart = useCallback((e) => {
     if (!panelRef.current) return
     const rect = panelRef.current.getBoundingClientRect()
@@ -88,29 +98,70 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
     e.preventDefault()
   }, [])
 
-  useEffect(() => {
-    if (!dragging) return
-    const onMove = (e) => {
-      const newX = e.clientX - dragOffset.current.x
-      const newY = e.clientY - dragOffset.current.y
-      // Clamp inside viewport
-      const panel = panelRef.current
-      if (!panel) return
-      const w = panel.offsetWidth
-      const h = panel.offsetHeight
-      setPos({
-        x: Math.min(Math.max(newX, 0), window.innerWidth - w),
-        y: Math.min(Math.max(newY, 0), window.innerHeight - h)
-      })
+  const onBtnDragStart = useCallback((e) => {
+    if (e.button !== 0) return; // Left click only
+    if (!triggerRef.current) return
+
+    // Record start coordinates to separate drag from click
+    btnStartPos.current = { x: e.clientX, y: e.clientY }
+
+    const rect = triggerRef.current.getBoundingClientRect()
+    btnDragOffset.current = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
     }
-    const onUp = () => setDragging(false)
+    setBtnDragging(true)
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  useEffect(() => {
+    if (!dragging && !btnDragging) return
+
+    const onMove = (e) => {
+      if (dragging && panelRef.current) {
+        const newX = e.clientX - dragOffset.current.x
+        const newY = e.clientY - dragOffset.current.y
+        const w = panelRef.current.offsetWidth
+        const h = panelRef.current.offsetHeight
+        // Clamp inside viewport
+        setPos({
+          x: Math.min(Math.max(newX, 0), window.innerWidth - w),
+          y: Math.min(Math.max(newY, 0), window.innerHeight - h)
+        })
+      } else if (btnDragging && triggerRef.current) {
+        const newX = e.clientX - btnDragOffset.current.x
+        const newY = e.clientY - btnDragOffset.current.y
+        const w = triggerRef.current.offsetWidth
+        const h = triggerRef.current.offsetHeight
+        // Clamp inside viewport with 10px padding
+        setBtnPos({
+          x: Math.min(Math.max(newX, 10), window.innerWidth - w - 10),
+          y: Math.min(Math.max(newY, 10), window.innerHeight - h - 10)
+        })
+      }
+    }
+
+    const onUp = (e) => {
+      if (btnDragging) {
+        setBtnDragging(false)
+        // If client coords barely changed, count it as a click!
+        const dist = Math.hypot(e.clientX - btnStartPos.current.x, e.clientY - btnStartPos.current.y)
+        if (dist < 6) {
+          setIsOpen(true)
+          setShowNotification(false)
+        }
+      }
+      setDragging(false)
+    }
+
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     return () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
-  }, [dragging])
+  }, [dragging, btnDragging])
 
   // ── TTS ───────────────────────────────────────────────────────────────────
   const speakText = useCallback(async (text) => {
@@ -259,32 +310,73 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
   }
   const st = statusMap[status]
 
-  // ── Panel positioning (fixed center by default, then user-dragged) ────────
+  // ── Panel positioning styles ──
   const panelStyle = pos.x !== null
     ? { position: 'fixed', left: pos.x, top: pos.y, transform: 'none', zIndex: 50 }
+    : { position: 'fixed', bottom: '1.5rem', left: '50%', transform: 'translateX(-50%)', zIndex: 50 }
+
+  // ── Floating Button styling (draggable position fallback to bottom center) ──
+  const triggerStyle = btnPos.x !== null
+    ? { position: 'fixed', left: btnPos.x, top: btnPos.y, transform: 'none', zIndex: 50 }
     : { position: 'fixed', bottom: '1.5rem', left: '50%', transform: 'translateX(-50%)', zIndex: 50 }
 
   return (
     <>
       <audio ref={audioRef} hidden />
 
-      {/* ── Floating trigger button ── */}
+      {/* ── Draggable Floating trigger button + Notification Bubble ── */}
       {!isOpen && (
-        <button
-          id="voice-tutor-open"
-          onClick={() => setIsOpen(true)}
-          title="AI Voice Tutor"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-[#6366f1] hover:bg-[#5053e1] text-white font-bold text-xs py-2.5 px-5 rounded-2xl shadow-lg shadow-[#6366f1]/30 hover:shadow-xl hover:shadow-[#6366f1]/40 transition-all duration-200 cursor-pointer"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3Z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8" />
-          </svg>
-          AI Voice Tutor
-        </button>
+        <div style={triggerStyle} ref={triggerRef} className="relative select-none">
+          {/* Notification bubble (Hey I'm Loki) */}
+          {showNotification && (
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[260px] bg-surface border border-[#6366f1]/30 p-3 rounded-2xl shadow-xl flex items-start gap-2 animate-bounce z-[60]">
+              {/* Green Loki Crown / Magic Icon */}
+              <div className="w-6 h-6 rounded-full bg-[#10b981]/20 flex items-center justify-center shrink-0 mt-0.5 text-[#10b981]">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-[11px] font-bold text-on-surface leading-snug">
+                  Hey, I'm <span className="text-[#6366f1]">Loki</span>! Your interactive Voice Assistant.
+                </p>
+                <p className="text-[9px] text-on-surface-variant leading-none mt-1">
+                  Drag me anywhere, or click to talk!
+                </p>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowNotification(false)
+                }}
+                className="text-on-surface-variant hover:text-on-surface text-[14px] leading-none p-0.5 shrink-0"
+                title="Dismiss"
+              >
+                &times;
+              </button>
+              {/* Tooltip arrow pointer */}
+              <div className="absolute top-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-t-surface drop-shadow-[0_1px_0_rgba(99,102,241,0.2)]" />
+            </div>
+          )}
+
+          {/* Launcher Button */}
+          <button
+            id="voice-tutor-open"
+            onMouseDown={onBtnDragStart}
+            title="Loki Voice Assistant (Drag to Move)"
+            className="flex items-center gap-2 bg-[#6366f1] hover:bg-[#5053e1] text-white font-bold text-xs py-2.5 px-5 rounded-2xl shadow-lg shadow-[#6366f1]/30 hover:shadow-xl hover:shadow-[#6366f1]/40 transition-all duration-200 cursor-grab active:cursor-grabbing"
+          >
+            {/* Crown Icon representing Loki (mischievous Norse helper theme) */}
+            <svg className="w-4 h-4 text-emerald-300" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M3 20h18" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Loki Voice Assistant
+          </button>
+        </div>
       )}
 
-      {/* ── Tutor panel ── */}
+      {/* ── Chat/Voice conversation panel ── */}
       {isOpen && (
         <div
           ref={panelRef}
@@ -298,14 +390,14 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
             className="flex items-center justify-between px-5 py-3.5 bg-[#6366f1]/10 border-b border-[#6366f1]/20 cursor-grab active:cursor-grabbing"
           >
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-full bg-[#6366f1]/20 flex items-center justify-center shrink-0">
-                <svg className="w-3.5 h-3.5 text-[#6366f1]" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                  <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3Z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8" />
+              {/* Loki Green/Gold Themed Icon */}
+              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 text-emerald-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
               <div>
-                <p className="font-bold text-xs text-on-surface leading-none">AI Voice Tutor</p>
+                <p className="font-bold text-xs text-on-surface leading-none">Loki AI Assistant</p>
                 <div className="flex items-center gap-1.5 mt-1">
                   <span className={`w-1.5 h-1.5 rounded-full ${st.dotCls}`} />
                   <span className={`text-[10px] font-semibold ${st.textCls}`}>{st.label}</span>
