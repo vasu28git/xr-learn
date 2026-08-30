@@ -73,7 +73,10 @@ export default function Diagnostic() {
       // Match weak topics to module ids via RAG. Non-fatal if it fails —
       // we still save weak_concept_topics even if matching didn't work.
       let weakModuleIds = []
-      if (weakTopics.length > 0) {
+      if (weakTopics.length === diagnosticQuestions.length) {
+        // All questions answered incorrectly: mark all modules 1-10 as weak (which unlocks all 11 modules with capstone)
+        weakModuleIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      } else if (weakTopics.length > 0) {
         try {
           const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
           const res = await fetch(`${apiUrl}/match-topics`, {
@@ -83,9 +86,12 @@ export default function Diagnostic() {
           })
           if (res.ok) {
             const { matches } = await res.json()
-            weakModuleIds = [...new Set(
-              matches.filter(m => m.moduleId).map(m => Number(m.moduleId))
-            )]
+            const matchedIds = matches.filter(m => m.moduleId).map(m => Number(m.moduleId))
+            if (matchedIds.length >= 5 || weakTopics.length >= 5) {
+              weakModuleIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+            } else {
+              weakModuleIds = [...new Set(matchedIds)]
+            }
           } else {
             console.error('match-topics request failed:', res.status)
           }
@@ -119,7 +125,7 @@ export default function Diagnostic() {
   return (
     <div className="min-h-screen bg-surface-container-lowest text-on-surface font-body-md py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto flex flex-col gap-8">
-        
+
         {/* Header */}
         <header className="text-center space-y-3">
           <span className="font-code-sm text-[10px] text-primary uppercase font-bold tracking-widest bg-primary/10 px-3 py-1 rounded border border-primary/20">
@@ -153,7 +159,7 @@ export default function Diagnostic() {
               <span className="text-primary font-bold">{answeredCount} of {diagnosticQuestions.length} answered</span>
             </div>
             <div className="w-full bg-surface-container-highest rounded-full h-2 overflow-hidden border border-outline-variant/30">
-              <div 
+              <div
                 className="bg-primary h-full rounded-full transition-all duration-300 shadow-[0_0_8px_rgba(142,213,255,0.4)]"
                 style={{ width: `${(answeredCount / diagnosticQuestions.length) * 100}%` }}
               ></div>
@@ -165,20 +171,16 @@ export default function Diagnostic() {
             {diagnosticQuestions.map((question, index) => {
               const hasAnswer = typeof answers[question.id] === 'string' && answers[question.id].trim().length > 0
               return (
-                <div 
-                  key={question.id} 
-                  className={`glass-panel p-6 rounded-xl transition-all duration-200 border ${
-                    hasAnswer 
-                      ? 'border-primary/20 bg-surface-container-low/10' 
+                <div
+                  key={question.id}
+                  className={`glass-panel p-6 rounded-xl transition-all duration-200 border ${hasAnswer
+                      ? 'border-primary/20 bg-surface-container-low/10'
                       : 'border-outline-variant/30 bg-surface-container-low/30'
-                  }`}
+                    }`}
                 >
                   <div className="flex justify-between items-center mb-4">
                     <span className="font-code-sm text-[10px] text-on-surface-variant uppercase font-bold">
                       Question {index + 1} of {diagnosticQuestions.length}
-                    </span>
-                    <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
-                      Modules {question.modulePair.join(' & ')}
                     </span>
                   </div>
 
@@ -198,7 +200,7 @@ export default function Diagnostic() {
             })}
           </div>
 
-           <button
+          <button
             type="submit"
             disabled={loading || answeredCount !== diagnosticQuestions.length}
             className="w-full bg-primary hover:bg-primary-fixed text-on-primary font-headline-sm text-xs py-3 rounded-xl font-bold transition-colors cursor-pointer flex justify-center items-center gap-2 shadow-lg shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
