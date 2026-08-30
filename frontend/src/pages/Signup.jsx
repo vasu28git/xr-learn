@@ -39,10 +39,11 @@ export default function Signup() {
     setLoading(true)
 
     try {
-      await api.auth.signup(email, password, fullName)
       localStorage.setItem('show-diagnostic', 'true')
+      await api.auth.signup(email, password, fullName)
       navigate('/dashboard')
     } catch (signUpError) {
+      localStorage.removeItem('show-diagnostic')
       setError(signUpError.message)
       setLoading(false)
     }
@@ -58,10 +59,11 @@ export default function Signup() {
       const mockPassword = "JudgePassword123!"
       const mockName = "Judge Reviewer"
       
-      await api.auth.signup(mockEmail, mockPassword, mockName)
       localStorage.setItem('show-diagnostic', 'true')
+      await api.auth.signup(mockEmail, mockPassword, mockName)
       navigate('/dashboard')
     } catch (signUpError) {
+      localStorage.removeItem('show-diagnostic')
       setError(signUpError.message)
       setLoading(false)
     }
