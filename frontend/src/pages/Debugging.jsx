@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { api } from '../lib/api'
+import { validateChallenge, executionErrorResult } from '../utils/validationEngine'
+import { executeXrCommands } from '../utils/xrCommandExecutor'
 
 const CodeEditor = lazy(() => import('../components/workspace/CodeEditor'))
 
@@ -137,7 +139,7 @@ const difficultyGlows = {
 // --- TICKETS LIST ---
 const tickets = [
   {
-    id: 842,
+    id: 101,
     title: 'Fix: The Non-Rotating Fan',
     difficulty: 'beginner',
     difficultyLabel: '🟢 Beginner',
@@ -148,7 +150,7 @@ const tickets = [
     actual: 'The mesh remains static. No errors are thrown, indicating a logical calculation error.',
     hint: 'Look closely at the rotation transform equation. Multiplying by 0 results in no movement. Did you mean Time.deltaTime?',
     starterCode: `using System;
-using MultiverseEngine.Core;
+using UnityEngine;
 
 public class FanController : MonoBehaviour
 {
@@ -164,23 +166,27 @@ public class FanController : MonoBehaviour
         }
     }
 }`,
-    validate: (code) => {
-      return /rotationSpeed\s*\*\s*Time\.deltaTime/i.test(code) || /rotationSpeed\s*\*\s*deltaTime/i.test(code)
+    initialState: { currentObject: { rotation: { x: 0, y: 0, z: 0 } } },
+    validation: {
+      rules: [
+        { type: 'COMMAND_USED', commandType: 'rotate' },
+        { type: 'ROTATION', name: 'currentObject', expected: [0, 0, 2.4], tolerance: 0.1 }
+      ]
     }
   },
   {
-    id: 901,
+    id: 102,
     title: 'Fix: Dim Server Room Lighting',
-    difficulty: 'intermediate',
-    difficultyLabel: '🟡 Intermediate',
-    xp: 250,
+    difficulty: 'beginner',
+    difficultyLabel: '🟢 Beginner',
+    xp: 150,
     fileName: 'LightController.cs',
     symptoms: 'The system monitor shows lighting systems active, but the room remains dark and hard to navigate.',
     expected: 'Lighting should set its intensity parameter to targetIntensity (2.5f) on boot.',
     actual: 'The light intensity is locked at 0.1f (extremely dim).',
     hint: 'Check the start sequence of the LightController. The code overrides the config with a static 0.1f float. Replace it with targetIntensity.',
     starterCode: `using System;
-using MultiverseEngine.Core;
+using UnityEngine;
 
 public class LightController : MonoBehaviour
 {
@@ -192,23 +198,26 @@ public class LightController : MonoBehaviour
         Light.intensity = 0.1f;
     }
 }`,
-    validate: (code) => {
-      return /Light\.intensity\s*=\s*targetIntensity/i.test(code)
+    initialState: { light: { intensity: 0.1 } },
+    validation: {
+      rules: [
+        { type: 'LIGHT_INTENSITY', expected: 2.5, tolerance: 0.1 }
+      ]
     }
   },
   {
-    id: 104,
+    id: 103,
     title: 'Fix: Teleport Target Misaligned',
-    difficulty: 'advanced',
-    difficultyLabel: '🔴 Advanced',
-    xp: 350,
+    difficulty: 'beginner',
+    difficultyLabel: '🟢 Beginner',
+    xp: 150,
     fileName: 'TeleportController.cs',
     symptoms: 'When firing the teleportation pointer pads, the projection beam shoots straight down into the floor pad instead of projecting forward.',
     expected: 'The projection vector direction should point forward along the Z-axis.',
     actual: 'The pointer pad vector direction is currently set to Vector3.down.',
     hint: 'Locate the direction variable initialization inside Update(). Replace Vector3.down with Vector3.forward.',
     starterCode: `using System;
-using MultiverseEngine.Core;
+using UnityEngine;
 
 public class TeleportController : MonoBehaviour
 {
@@ -219,8 +228,254 @@ public class TeleportController : MonoBehaviour
         Teleporter.SetDirection(direction);
     }
 }`,
-    validate: (code) => {
-      return /Vector3\.forward/i.test(code)
+    initialState: { teleporter: { position: { x: 0, y: -1, z: 0 } } },
+    validation: {
+      rules: [
+        { type: 'COMMAND_USED', commandType: 'setdirection' },
+        { type: 'POSITION', name: 'teleporter', expected: [0, 0, 1], tolerance: 0.1 }
+      ]
+    }
+  },
+  {
+    id: 104,
+    title: 'Fix: Backup Fan Blade Spelling Typo',
+    difficulty: 'intermediate',
+    difficultyLabel: '🟡 Intermediate',
+    xp: 200,
+    fileName: 'GeneratorController.cs',
+    symptoms: 'The backup generator system compiled with errors and failed to boot. Staff report typos in the rotor blades initialization logic.',
+    expected: 'The script should compile and rotate the generator blade based on rotationSpeed.',
+    actual: 'C# compiler throws an error stating that "generatrBlade" does not exist in the current context.',
+    hint: 'Check spelling inside the Update method. You declared the variable as "generatorBlade" but tried to access it as "generatrBlade".',
+    starterCode: `using System;
+using UnityEngine;
+
+public class GeneratorController : MonoBehaviour
+{
+    public GameObject generatorBlade;
+    public float rotationSpeed = 100.0f;
+
+    void Update()
+    {
+        // Bug: Spelling typo in generatorBlade reference!
+        generatrBlade.transform.Rotate(new Vector3(0, 0, rotationSpeed * Time.deltaTime));
+    }
+}`,
+    initialState: { currentObject: { rotation: { x: 0, y: 0, z: 0 } } },
+    validation: {
+      rules: [
+        { type: 'COMMAND_USED', commandType: 'rotate' },
+        { type: 'ROTATION', name: 'currentObject', expected: [0, 0, 1.6], tolerance: 0.1 }
+      ]
+    }
+  },
+  {
+    id: 105,
+    title: 'Fix: Missing Warning Light Creation',
+    difficulty: 'intermediate',
+    difficultyLabel: '🟡 Intermediate',
+    xp: 200,
+    fileName: 'SystemMonitor.cs',
+    symptoms: 'The server console warning indicator is not displaying on the wall, although coordinates are correctly set to (0, 2, 0).',
+    expected: 'The warning light object should be dynamically created in the hierarchy, then positioned on the wall.',
+    actual: 'The light is missing because the C# script attempts to set its position without spawning the cube first.',
+    hint: 'Spawn the warning light first using xr.CreateCube("warningLight", ...) before calling xr.SetPosition.',
+    starterCode: `using System;
+using UnityEngine;
+
+public class SystemMonitor : MonoBehaviour
+{
+    void Start()
+    {
+        // Bug: Setting position of "warningLight" but it was never created!
+        // Hint: Spawn it with xr.CreateCube("warningLight", new Vector3(0, 2, 0), new Vector3(0.5f, 0.5f, 0.5f));
+        xr.SetPosition("warningLight", new Vector3(0, 2, 0));
+    }
+}`,
+    initialState: {},
+    validation: {
+      rules: [
+        { type: 'COMMAND_USED', commandType: 'createcube' },
+        { type: 'OBJECT_EXISTS', name: 'warningLight' },
+        { type: 'POSITION', name: 'warningLight', expected: [0, 2, 0], tolerance: 0.1 }
+      ]
+    }
+  },
+  {
+    id: 106,
+    title: 'Fix: Transverse Rotation Axis',
+    difficulty: 'intermediate',
+    difficultyLabel: '🟡 Intermediate',
+    xp: 200,
+    fileName: 'PadAligner.cs',
+    symptoms: 'The teleporter alignment pad is tilting vertically rather than spinning horizontally.',
+    expected: 'The pad should rotate 90 degrees around the Y-axis (vertical axis) to lock in orientation.',
+    actual: 'The rotation vector applies 90 degrees of tilt around the Z-axis.',
+    hint: 'Change the arguments of the Vector3 constructor. Rotate around Y (middle parameter) instead of Z (last parameter).',
+    starterCode: `using System;
+using UnityEngine;
+
+public class PadAligner : MonoBehaviour
+{
+    void Start()
+    {
+        // Bug: Tilting 90 degrees around Z axis!
+        transform.Rotate(new Vector3(0, 0, 90));
+    }
+}`,
+    initialState: { currentObject: { rotation: { x: 0, y: 0, z: 0 } } },
+    validation: {
+      rules: [
+        { type: 'COMMAND_USED', commandType: 'rotate' },
+        { type: 'ROTATION', name: 'currentObject', expected: [0, 90, 0], tolerance: 0.1 }
+      ]
+    }
+  },
+  {
+    id: 107,
+    title: 'Fix: Out of Scope speed Parameter',
+    difficulty: 'intermediate',
+    difficultyLabel: '🟡 Intermediate',
+    xp: 200,
+    fileName: 'BladeSpeedController.cs',
+    symptoms: 'The code throws a syntax compiler error: "The name \'speed\' does not exist in the current context".',
+    expected: 'The fan rotor should spin using the local speed parameter value of 180.0f.',
+    actual: 'The speed variable is declared inside an isolated if-statement block and cannot be accessed in the main loop.',
+    hint: 'Move the float speed variable declaration out of the conditional block so it is visible to the transform.Rotate call.',
+    starterCode: `using System;
+using UnityEngine;
+
+public class BladeSpeedController : MonoBehaviour
+{
+    void Update()
+    {
+        if (true)
+        {
+            // Bug: Declared speed inside block scope!
+            float speed = 180.0f;
+        }
+
+        transform.Rotate(new Vector3(0, 0, speed * Time.deltaTime));
+    }
+}`,
+    initialState: { currentObject: { rotation: { x: 0, y: 0, z: 0 } } },
+    validation: {
+      rules: [
+        { type: 'CODE_FEATURE', pattern: 'float\\s+speed\\s*=\\s*180', description: 'correct variable scope declaration' },
+        { type: 'COMMAND_USED', commandType: 'rotate' },
+        { type: 'ROTATION', name: 'currentObject', expected: [0, 0, 2.88], tolerance: 0.1 }
+      ]
+    }
+  },
+  {
+    id: 108,
+    title: 'Fix: Temperature Logic Operator',
+    difficulty: 'advanced',
+    difficultyLabel: '🔴 Advanced',
+    xp: 300,
+    fileName: 'CoolingController.cs',
+    symptoms: 'The backup cooling lighting is off even though the server core temperature has risen to an unsafe 45 degrees.',
+    expected: 'The warning lights should activate at maximum intensity (3.0f) if the current temperature exceeds 35 degrees.',
+    actual: 'The comparison logic checks if temperature is less than 35 degrees.',
+    hint: 'Find the condition inside the Update loop. Replace the less-than operator (<) with a greater-than operator (>).',
+    starterCode: `using System;
+using UnityEngine;
+
+public class CoolingController : MonoBehaviour
+{
+    public float temperature = 45.0f;
+
+    void Update()
+    {
+        // Bug: Checks if temperature is LESS than 35!
+        if (temperature < 35.0f)
+        {
+            Light.intensity = 3.0f;
+        }
+        else
+        {
+            Light.intensity = 0.2f;
+        }
+    }
+}`,
+    initialState: { light: { intensity: 0.2 } },
+    validation: {
+      rules: [
+        { type: 'CODE_FEATURE', pattern: 'temperature\\s*>\\s*35', description: 'a greater-than comparison for temperature' },
+        { type: 'LIGHT_INTENSITY', expected: 3.0, tolerance: 0.1 }
+      ]
+    }
+  },
+  {
+    id: 109,
+    title: 'Fix: Infinite Spawning Loop',
+    difficulty: 'advanced',
+    difficultyLabel: '🔴 Advanced',
+    xp: 300,
+    fileName: 'GridGenerator.cs',
+    symptoms: 'Pressing compile and run causes the simulation thread to freeze and crash, locking the browser console.',
+    expected: 'The loop should spawn exactly 5 alignment markers along the floor and terminate.',
+    actual: 'The compiler runs into an infinite while-loop because the iterator variable is never incremented.',
+    hint: 'Add an increment statement (i++ or i += 1) for the variable "i" inside the while loop body.',
+    starterCode: `using System;
+using UnityEngine;
+
+public class GridGenerator : MonoBehaviour
+{
+    void Start()
+    {
+        int i = 0;
+        while (i < 5)
+        {
+            xr.CreateCube("blade" + i, new Vector3(i, 0, 0), new Vector3(1, 1, 1));
+            // Bug: missing increment statement!
+        }
+    }
+}`,
+    initialState: {},
+    validation: {
+      rules: [
+        { type: 'CODE_FEATURE', pattern: 'i\\+\\+|i\\s*\\+=\\s*1|i\\s*=\\s*i\\s*\\+\\s*1', description: 'loop variable increment statement' },
+        { type: 'COMMAND_COUNT', commandType: 'createcube', expected: 5 }
+      ]
+    }
+  },
+  {
+    id: 110,
+    title: 'Fix: Quantum Relay Multi-Bug',
+    difficulty: 'advanced',
+    difficultyLabel: '🔴 Advanced',
+    xp: 350,
+    fileName: 'QuantumRelay.cs',
+    symptoms: 'The quantum beam transmitter fails to compile and points in the wrong direction during startup diagnostic tests.',
+    expected: 'The transmitter should compile, position the beam at (0, 0, trgZ), set the teleporter beam direction to forward, and parent the beam to "pad".',
+    actual: 'Compilation errors out due to a typo "trg_Z" instead of "trgZ". The beam direction is backward, and the parent is set to "pad_core".',
+    hint: 'Fix 3 bugs: 1) change "trg_Z" to "trgZ", 2) change Vector3.back to Vector3.forward, and 3) change "pad_core" to "pad".',
+    starterCode: `using System;
+using UnityEngine;
+
+public class QuantumRelay : MonoBehaviour
+{
+    void Start()
+    {
+        float trgZ = 5.0f;
+        // Bug 1: Typo in variable name (trg_Z vs trgZ)
+        // Bug 2: Vector direction set to back instead of forward
+        // Bug 3: Parent name set to non-existent "pad_core" instead of "pad"
+        xr.CreateCube("beam", new Vector3(0, 0, trg_Z), new Vector3(1, 1, 1));
+        Vector3 dir = Vector3.back;
+        Teleporter.SetDirection(dir);
+        xr.SetParent("beam", "pad_core");
+    }
+}`,
+    initialState: { teleporter: { position: { x: 0, y: -1, z: 0 } }, beam: { position: { x: 0, y: 0, z: 0 } }, pad: {} },
+    validation: {
+      rules: [
+        { type: 'OBJECT_EXISTS', name: 'beam' },
+        { type: 'POSITION', name: 'beam', expected: [0, 0, 5], tolerance: 0.1 },
+        { type: 'POSITION', name: 'teleporter', expected: [0, 0, 1], tolerance: 0.1 },
+        { type: 'CHILD_OF', child: 'beam', parent: 'pad' }
+      ]
     }
   }
 ]
@@ -231,6 +486,8 @@ export default function Debugging() {
   const [isResolved, setIsResolved] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
   const [lastError, setLastError] = useState(null)
+  const [validationResults, setValidationResults] = useState([])
+  const [validationScore, setValidationScore] = useState(0)
   const [activeSubTab, setActiveSubTab] = useState('backlog')
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
   const navigate = useNavigate()
@@ -273,6 +530,8 @@ export default function Debugging() {
     setIsResolved(false)
     setShowFeedback(false)
     setLastError(null)
+    setValidationResults([])
+    setValidationScore(0)
     setActiveSubTab('ticket')
   }
 
@@ -281,21 +540,49 @@ export default function Debugging() {
     setIsResolved(false)
     setShowFeedback(false)
     setLastError(null)
+    setValidationResults([])
+    setValidationScore(0)
 
     try {
       const res = await api.execute.run(code)
       if (res.errors && res.errors.length > 0) {
         const firstErr = res.errors[0]
-        setLastError(`${firstErr.kind.toUpperCase()} ERROR: ${firstErr.message} (Line ${firstErr.line}, Col ${firstErr.column})`)
+        const errMessage = `${firstErr.kind.toUpperCase()} ERROR: ${firstErr.message} (Line ${firstErr.line}, Col ${firstErr.column})`
+        setLastError(errMessage)
+        
+        const errRes = executionErrorResult(errMessage)
+        setValidationResults(errRes.results)
+        setValidationScore(errRes.score)
+        setIsResolved(false)
         setShowFeedback(true)
         return
       }
 
-      const passed = selectedTicket.validate(code)
-      setIsResolved(passed)
+      // Preprocess C# commands into dynamic scene state
+      const commands = res.commands || []
+      // Inject RegisterClick commands if user added Click handler registration, matching useSandbox.js
+      if (/box1\.(onClick|OnClick)/i.test(code)) commands.push({ Type: 'RegisterClick', Name: 'box1' })
+      if (/box2\.(onClick|OnClick)/i.test(code)) commands.push({ Type: 'RegisterClick', Name: 'box2' })
+      if (/box3\.(onClick|OnClick)/i.test(code)) commands.push({ Type: 'RegisterClick', Name: 'box3' })
+      if (/box\.(onClick|OnClick)/i.test(code)) commands.push({ Type: 'RegisterClick', Name: 'box' })
+
+      const initialState = selectedTicket.initialState || {}
+      const sceneState = executeXrCommands(commands, initialState, selectedTicket.id)
+
+      // Run validator engine
+      const validation = validateChallenge(selectedTicket, sceneState, commands, code)
+      setValidationResults(validation.results)
+      setValidationScore(validation.score)
+      setIsResolved(validation.passed)
       setShowFeedback(true)
     } catch (err) {
-      setLastError(`Network Error: ${err.message}`)
+      const errMessage = `Network Error: ${err.message}`
+      setLastError(errMessage)
+      
+      const errRes = executionErrorResult(errMessage)
+      setValidationResults(errRes.results)
+      setValidationScore(errRes.score)
+      setIsResolved(false)
       setShowFeedback(true)
     }
   }
@@ -542,29 +829,24 @@ export default function Debugging() {
                   {/* Grading Feedback Results Panel */}
                   {showFeedback && (
                     <div className={`p-4 rounded-2xl border mt-6 flex flex-col ${isResolved ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-outline-variant/35 bg-surface-container-lowest'}`}>
-                      <h4 className="text-xs font-bold text-on-surface border-b border-outline-variant/30 pb-2 mb-3 uppercase tracking-wider flex items-center gap-1.5">
-                        <span>{isResolved ? '🎉 Debug Successful!' : 'Compile status'}</span>
+                      <h4 className="text-xs font-bold text-on-surface border-b border-outline-variant/30 pb-2 mb-3 uppercase tracking-wider flex items-center justify-between">
+                        <span>{isResolved ? '🎉 Debug Successful!' : 'Grading Status'}</span>
+                        <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${isResolved ? 'bg-emerald-500/20 text-emerald-500' : 'bg-amber-500/20 text-amber-500'}`}>
+                          Score: {validationScore}%
+                        </span>
                       </h4>
                       
-                      <div className="font-mono text-[10px] space-y-2.5 text-on-surface-variant">
-                        {isResolved ? (
-                          <div className="space-y-1.5 text-emerald-500 font-semibold">
-                            <p>✓ Code validation checks completed.</p>
-                            <p>✓ Scene parameters resolved.</p>
-                            <p>✓ Telemetry data verified.</p>
+                      <div className="font-mono text-[10px] space-y-3 text-on-surface-variant">
+                        {validationResults.map((result, i) => (
+                          <div key={i} className="flex flex-col border-b border-outline-variant/10 pb-2 last:border-0 last:pb-0">
+                            <div className="flex items-start gap-2">
+                              <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${result.passed ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                              <span className={`text-[11px] font-medium leading-relaxed ${result.passed ? 'text-emerald-500' : 'text-red-400'}`}>
+                                {result.message}
+                              </span>
+                            </div>
                           </div>
-                        ) : (
-                          <div className="space-y-1.5 text-red-500 font-semibold">
-                            {lastError ? (
-                              <p className="leading-relaxed">{lastError}</p>
-                            ) : (
-                              <>
-                                <p>✗ C# validator execution failed.</p>
-                                <p>✗ Scene variables mismatch.</p>
-                              </>
-                            )}
-                          </div>
-                        )}
+                        ))}
                       </div>
                     </div>
                   )}
@@ -696,9 +978,9 @@ export default function Debugging() {
                   <span className="font-code-sm text-[10px] text-on-surface-variant animate-pulse">BOOTING XR RENDERER...</span>
                 </div>
               }>
-                {selectedTicket.id === 842 && <FanScene isSpinning={isResolved} />}
-                {selectedTicket.id === 901 && <ServerRoom intensity={isResolved ? 2.5 : 0.1} />}
-                {selectedTicket.id === 104 && <TeleporterPad beamDirection={isResolved ? 'forward' : 'down'} />}
+                {[101, 104, 107, 109].includes(selectedTicket.id) && <FanScene isSpinning={isResolved} />}
+                {[102, 105, 108].includes(selectedTicket.id) && <ServerRoom intensity={isResolved ? 2.5 : 0.1} />}
+                {[103, 106, 110].includes(selectedTicket.id) && <TeleporterPad beamDirection={isResolved ? 'forward' : 'down'} />}
               </Suspense>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-6 h-full text-white/50">

@@ -1,16 +1,11 @@
 import { useState, useCallback, lazy, Suspense, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { challenge1 } from '../config/challenges/challenge1'
-import { challenge2 } from '../config/challenges/challenge2'
-import { challenge3 } from '../config/challenges/challenge3'
-import { challenge4 } from '../config/challenges/challenge4'
-import { runTests } from '../utils/testRunner'
+import { challenges } from '../config/challenges/challenges'
+import { validateChallenge, executionErrorResult } from '../utils/validationEngine'
 import { useSandbox } from '../hooks/useSandbox'
 
 const Scene = lazy(() => import('../components/workspace/Scene'))
 const CodeEditor = lazy(() => import('../components/workspace/CodeEditor'))
-
-const challenges = [challenge1, challenge2, challenge3, challenge4]
 
 const difficultyColors = {
   beginner: 'text-secondary bg-secondary/10 border-secondary/20',
@@ -53,7 +48,8 @@ export default function Training() {
   const [isVisualizerFullscreen, setIsVisualizerFullscreen] = useState(false)
 
   // We reuse useSandbox with moduleId=6 as a generic sandbox
-  const { sceneState, runCode, lastError, resetState, setSceneState } = useSandbox(6)
+  const { sceneState, runCode, lastError, lastCommands, resetState, setSceneState } = useSandbox(6)
+  const [validationScore, setValidationScore] = useState(0)
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -79,6 +75,7 @@ export default function Training() {
     setSelectedChallenge(challenge)
     setCode(challenge.starterCode)
     setTestResults([])
+    setValidationScore(0)
     setShowResults(false)
     setActiveSubTab('task')
     resetState()
@@ -99,10 +96,20 @@ export default function Training() {
 
   const handleSubmit = useCallback(() => {
     if (!selectedChallenge) return
-    const results = runTests(selectedChallenge, sceneState)
-    setTestResults(results)
+    
+    if (lastError) {
+      const errRes = executionErrorResult(lastError)
+      setTestResults(errRes.results)
+      setValidationScore(errRes.score)
+      setShowResults(true)
+      return
+    }
+
+    const validation = validateChallenge(selectedChallenge, sceneState, lastCommands, code)
+    setTestResults(validation.results)
+    setValidationScore(validation.score)
     setShowResults(true)
-  }, [selectedChallenge, sceneState])
+  }, [selectedChallenge, sceneState, lastCommands, code, lastError])
 
   const allPassed = testResults.length > 0 && testResults.every((r) => r.passed)
 
@@ -358,19 +365,21 @@ export default function Training() {
                   {/* Test Results list rendered here inside task tab */}
                   {showResults && (
                     <div className={`p-4 rounded-2xl border mt-6 flex flex-col ${allPassed ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-outline-variant/35 bg-surface-container-lowest'}`}>
-                      <h4 className="text-xs font-bold text-on-surface border-b border-outline-variant/30 pb-2 mb-3 flex items-center gap-1.5 uppercase tracking-wider">
+                      <h4 className="text-xs font-bold text-on-surface border-b border-outline-variant/30 pb-2 mb-3 flex items-center justify-between uppercase tracking-wider">
                         <span>{allPassed ? '🎉 All Tests Passed!' : 'Grading Status'}</span>
+                        <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${allPassed ? 'bg-emerald-500/20 text-emerald-500' : 'bg-amber-500/20 text-amber-500'}`}>
+                          Score: {validationScore}%
+                        </span>
                       </h4>
-                      <div className="space-y-2.5 font-mono text-[10px] text-on-surface-variant">
+                      <div className="space-y-3 font-mono text-[10px] text-on-surface-variant">
                         {testResults.map((result, i) => (
-                          <div key={i} className="flex items-center justify-between border-b border-outline-variant/10 pb-1.5">
-                            <div className="flex items-center gap-2">
-                              <span className={`w-1.5 h-1.5 rounded-full ${result.passed ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
-                              <span className="text-[11px] font-bold">{result.name}</span>
+                          <div key={i} className="flex flex-col border-b border-outline-variant/10 pb-2 last:border-0 last:pb-0">
+                            <div className="flex items-start gap-2">
+                              <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${result.passed ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                              <span className={`text-[11px] font-medium leading-relaxed ${result.passed ? 'text-emerald-500' : 'text-red-400'}`}>
+                                {result.message}
+                              </span>
                             </div>
-                            <span className={`font-bold ${result.passed ? 'text-emerald-500' : 'text-red-500'}`}>
-                              {result.passed ? 'PASSED' : 'FAILED'}
-                            </span>
                           </div>
                         ))}
                       </div>
@@ -508,7 +517,7 @@ export default function Training() {
                 <Scene
                   moduleId={6}
                   sceneState={sceneState}
-                  moduleConfig={null}
+                  moduleConfig={selectedChallenge}
                   onObjectClick={() => {}}
                 />
               </Suspense>

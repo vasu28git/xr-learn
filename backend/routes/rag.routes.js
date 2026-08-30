@@ -24,4 +24,15 @@ router.post('/match-topics', async (req, res) => {
   }
 });
 
+router.post('/grade-quiz', async (req, res) => {
+  const { questions, answers } = req.body;
+  try {
+    const data = await ragService.gradeQuiz(questions, answers);
+    res.json(data);
+  } catch (err) {
+    console.error('RAG grade quiz error:', err);
+    res.status(500).json({ error: 'Failed to grade quiz' });
+  }
+});
+
 module.exports = router;

@@ -456,6 +456,65 @@ function DynamicSceneObjects({ dynamicObjects }) {
   )
 }
 
+/* ========== CHALLENGE DYNAMIC CONFIG OBJECTS ========== */
+
+function ChallengeSceneObjects({ sceneState, moduleConfig }) {
+  if (!moduleConfig?.scene?.objects) return null
+
+  return (
+    <>
+      {moduleConfig.scene.objects.map((obj) => {
+        const id = obj.id
+        const stateObj = sceneState?.[id] || {}
+        
+        // Position
+        let pos = obj.position || [0, 0, 0]
+        if (stateObj.position) {
+          pos = [stateObj.position.x, stateObj.position.y, stateObj.position.z]
+        }
+
+        // Scale
+        let scale = [1, 1, 1]
+        if (stateObj.scale) {
+          scale = [stateObj.scale.x, stateObj.scale.y, stateObj.scale.z]
+        }
+
+        // Color
+        const color = stateObj.color || obj.color || '#888888'
+
+        // Size / Geometry args
+        const size = obj.size || (obj.type === 'box' ? [1, 1, 1] : obj.type === 'sphere' ? [0.5, 32, 32] : [0.5, 0.5, 1, 32])
+
+        if (obj.type === 'box' || obj.type === 'cube') {
+          return (
+            <mesh key={id} name={id} position={pos} scale={scale}>
+              <boxGeometry args={[size[0] || 1, size[1] || 1, size[2] || 1]} />
+              <meshStandardMaterial color={color} roughness={0.4} metalness={0.3} />
+            </mesh>
+          )
+        }
+        if (obj.type === 'sphere') {
+          return (
+            <mesh key={id} name={id} position={pos} scale={scale}>
+              <sphereGeometry args={[size[0] || 0.5, size[1] || 32, size[2] || 32]} />
+              <meshStandardMaterial color={color} roughness={0.4} metalness={0.3} />
+            </mesh>
+          )
+        }
+        if (obj.type === 'cylinder') {
+          return (
+            <mesh key={id} name={id} position={pos} scale={scale}>
+              <cylinderGeometry args={[size[0] || 0.5, size[1] || 0.5, size[2] || 1, size[3] || 32]} />
+              <meshStandardMaterial color={color} roughness={0.4} metalness={0.3} />
+            </mesh>
+          )
+        }
+        return null
+      })}
+    </>
+  )
+}
+
 /* ========== MAIN EXPORT ========== */
 
 /* ========== SCENE INVALIDATOR (for frameloop="demand") ========== */
@@ -469,6 +528,17 @@ function SceneInvalidator({ sceneState }) {
 }
 
 export default function SceneObjects({ moduleId, sceneState, moduleConfig, onObjectClick }) {
+  // If we are in training challenge (moduleConfig present), we bypass standard lesson checks
+  if (moduleConfig?.scene?.objects) {
+    return (
+      <>
+        <SceneInvalidator sceneState={sceneState} />
+        <ChallengeSceneObjects sceneState={sceneState} moduleConfig={moduleConfig} />
+        <DynamicSceneObjects dynamicObjects={sceneState?.dynamicObjects} />
+      </>
+    )
+  }
+
   if (Number(moduleId) !== 1 && !sceneState?.hasRun) {
     return <SceneInvalidator sceneState={sceneState} />
   }

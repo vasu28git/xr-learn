@@ -39,11 +39,11 @@ const getVoiceTutorResponse = async ({ lessonContent, code, history, question })
 
   if (!GEMINI_API_KEY) {
     return {
-      message: "Hi! I'm Loki, your AI tutor. The Gemini API key isn't configured yet, but once it's set up I'll be able to answer your questions about this lesson and your code. Check backend/.env to add your GEMINI_API_KEY."
+      message: "Hi! I'm Sylvie, your AI tutor. The Gemini API key isn't configured yet, but once it's set up I'll be able to answer your questions about this lesson and your code. Check backend/.env to add your GEMINI_API_KEY."
     };
   }
 
-  const systemPrompt = `You are Loki, an educational AI tutor helping a student learn Unity C# and XR (Extended Reality) development.
+  const systemPrompt = `You are Sylvie, an educational AI tutor helping a student learn Unity C# and XR (Extended Reality) development.
 
 Respond using plain text only. Do not use Markdown, bold text, headings, bullet symbols, code fences, or decorative formatting. Explain concepts clearly and conversationally. Keep explanations easy to understand for students. When discussing code, preserve code syntax accurately but do not wrap it in Markdown code blocks.
 

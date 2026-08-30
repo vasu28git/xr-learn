@@ -408,6 +408,7 @@ export function useSandbox(moduleId) {
   const id = Number(moduleId)
   const [sceneState, setSceneState] = useState(() => getInitialState(id))
   const [lastError, setLastError] = useState(null)
+  const [lastCommands, setLastCommands] = useState([])
 
   const runCode = useCallback(
     async (code) => {
@@ -419,6 +420,7 @@ export function useSandbox(moduleId) {
         if (res.errors && res.errors.length > 0) {
           const firstErr = res.errors[0]
           setLastError(`${firstErr.kind.toUpperCase()} ERROR: ${firstErr.message} (Line ${firstErr.line}, Col ${firstErr.column})`)
+          setLastCommands([])
           return
         }
 
@@ -430,6 +432,7 @@ export function useSandbox(moduleId) {
           if (/box3\.(onClick|OnClick)/i.test(code)) commands.push({ Type: 'RegisterClick', Name: 'box3' })
           if (/box\.(onClick|OnClick)/i.test(code)) commands.push({ Type: 'RegisterClick', Name: 'box' })
 
+          setLastCommands(commands)
           setSceneState((prev) => {
             const next = executeXrCommands(commands, prev, id)
             next.hasRun = true
@@ -458,7 +461,8 @@ export function useSandbox(moduleId) {
   const resetState = useCallback(() => {
     setSceneState(getInitialState(id))
     setLastError(null)
+    setLastCommands([])
   }, [id])
 
-  return { sceneState, runCode, lastError, handleSceneClick, resetState, setSceneState }
+  return { sceneState, runCode, lastError, lastCommands, handleSceneClick, resetState, setSceneState }
 }

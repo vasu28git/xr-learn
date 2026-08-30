@@ -12,15 +12,15 @@ export default function Diagnostic() {
   const [error, setError] = useState(null)
   const [validationError, setValidationError] = useState(null)
 
-  const handleOptionChange = (questionId, optionId) => {
+  const handleAnswerChange = (questionId, text) => {
     setAnswers(prev => ({
       ...prev,
-      [questionId]: optionId
+      [questionId]: text
     }))
     setValidationError(null)
   }
 
-  const answeredCount = Object.keys(answers).length
+  const answeredCount = Object.values(answers).filter(a => typeof a === 'string' && a.trim().length > 0).length
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -35,9 +35,39 @@ export default function Diagnostic() {
     setLoading(true)
 
     try {
+      // Grade answers via Gemini through the backend /grade-quiz endpoint.
+      // On any failure, default every question to incorrect (safe fallback).
+      let correctness = {}
+      diagnosticQuestions.forEach(q => { correctness[q.id] = false }) // safe default
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+        const gradeRes = await fetch(`${apiUrl}/grade-quiz`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            questions: diagnosticQuestions.map(q => ({
+              id: q.id,
+              question: q.question,
+              referenceAnswer: q.referenceAnswer,
+            })),
+            answers,
+          }),
+        })
+        if (gradeRes.ok) {
+          const gradeData = await gradeRes.json()
+          if (gradeData.correctness && typeof gradeData.correctness === 'object') {
+            correctness = gradeData.correctness
+          }
+        } else {
+          console.error('grade-quiz request failed:', gradeRes.status)
+        }
+      } catch (gradeErr) {
+        console.error('grade-quiz request threw:', gradeErr)
+      }
+
       // Collect ragTopics for every wrong answer
       const weakTopics = diagnosticQuestions
-        .filter(q => answers[q.id] !== q.correctOptionId)
+        .filter(q => !correctness[q.id])
         .map(q => q.ragTopic)
 
       // Match weak topics to module ids via RAG. Non-fatal if it fails —
@@ -45,7 +75,7 @@ export default function Diagnostic() {
       let weakModuleIds = []
       if (weakTopics.length > 0) {
         try {
-          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
           const res = await fetch(`${apiUrl}/match-topics`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -132,55 +162,40 @@ export default function Diagnostic() {
 
           {/* Questions Container */}
           <div className="space-y-4">
-            {diagnosticQuestions.map((question, index) => (
-              <div 
-                key={question.id} 
-                className={`glass-panel p-6 rounded-xl transition-all duration-200 border ${
-                  answers[question.id] !== undefined 
-                    ? 'border-primary/20 bg-surface-container-low/10' 
-                    : 'border-outline-variant/30 bg-surface-container-low/30'
-                }`}
-              >
-                <div className="flex justify-between items-center mb-4">
-                  <span className="font-code-sm text-[10px] text-on-surface-variant uppercase font-bold">
-                    Question {index + 1} of {diagnosticQuestions.length}
-                  </span>
-                  <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
-                    Modules {question.modulePair.join(' & ')}
-                  </span>
-                </div>
+            {diagnosticQuestions.map((question, index) => {
+              const hasAnswer = typeof answers[question.id] === 'string' && answers[question.id].trim().length > 0
+              return (
+                <div 
+                  key={question.id} 
+                  className={`glass-panel p-6 rounded-xl transition-all duration-200 border ${
+                    hasAnswer 
+                      ? 'border-primary/20 bg-surface-container-low/10' 
+                      : 'border-outline-variant/30 bg-surface-container-low/30'
+                  }`}
+                >
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="font-code-sm text-[10px] text-on-surface-variant uppercase font-bold">
+                      Question {index + 1} of {diagnosticQuestions.length}
+                    </span>
+                    <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
+                      Modules {question.modulePair.join(' & ')}
+                    </span>
+                  </div>
 
-                <h3 className="font-headline-sm text-sm font-bold text-on-surface mb-4 leading-relaxed">
-                  {question.question}
-                </h3>
+                  <h3 className="font-headline-sm text-sm font-bold text-on-surface mb-4 leading-relaxed">
+                    {question.question}
+                  </h3>
 
-                <div className="space-y-2.5">
-                  {question.options.map((option) => {
-                    const isChecked = answers[question.id] === option.id
-                    return (
-                      <label 
-                        key={option.id}
-                        className={`flex items-start gap-3 p-3.5 rounded-lg border transition-all duration-150 cursor-pointer ${
-                          isChecked 
-                            ? 'bg-primary/10 border-primary text-on-surface' 
-                            : 'bg-surface-container-lowest border-outline-variant/20 text-on-surface-variant hover:border-outline-variant/50'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name={`question-${question.id}`}
-                          value={option.id}
-                          checked={isChecked}
-                          onChange={() => handleOptionChange(question.id, option.id)}
-                          className="mt-0.5 w-4 h-4 accent-primary cursor-pointer"
-                        />
-                        <span className="text-xs leading-relaxed font-body-sm">{option.text}</span>
-                      </label>
-                    )
-                  })}
+                  <textarea
+                    rows={4}
+                    placeholder="Type your answer here…"
+                    value={answers[question.id] || ''}
+                    onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                    className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg p-3.5 text-xs font-body-sm text-on-surface placeholder:text-on-surface-variant/50 leading-relaxed resize-y focus:outline-none focus:border-primary/60 focus:ring-1 focus:ring-primary/30 transition-colors"
+                  />
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
            <button
@@ -190,18 +205,6 @@ export default function Diagnostic() {
           >
             <span className="material-symbols-outlined text-[18px]">done_all</span>
             {loading ? 'Analyzing Quiz Results...' : 'Submit Assessment & Continue'}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              localStorage.removeItem('show-diagnostic')
-              navigate('/dashboard')
-            }}
-            className="w-full border border-outline-variant hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface font-headline-sm text-xs py-2.5 rounded-xl font-semibold transition-colors cursor-pointer flex justify-center items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-[16px]">skip_next</span>
-            Skip Assessment & Go to Dashboard
           </button>
         </form>
       </div>

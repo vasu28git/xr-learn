@@ -94,7 +94,7 @@ export default function Dashboard() {
     }
   }
 
-  const modulesToRender = showAllModules ? allModules : visibleModules.slice(0, 4)
+  const modulesToRender = showAllModules ? visibleModules : visibleModules.slice(0, 4)
 
   return (
     <div className="font-body-md min-h-screen flex flex-col bg-surface-container-lowest text-on-surface transition-colors duration-300">
@@ -246,108 +246,120 @@ export default function Dashboard() {
         <section id="learning-modules-section" className="flex flex-col gap-6 border-t border-outline-variant/30 pt-10">
           <div className="flex justify-between items-center w-full">
             <h2 className="text-lg font-bold tracking-tight text-on-surface">Learning Modules</h2>
-            <button 
-              onClick={() => setShowAllModules(!showAllModules)} 
-              className="text-[#6366f1] hover:underline font-bold text-xs cursor-pointer transition-colors"
-            >
-              {showAllModules ? 'Show Less' : 'View all'}
-            </button>
+            {!loadingProgress && visibleModules.length > 4 && (
+              <button 
+                onClick={() => setShowAllModules(!showAllModules)} 
+                className="text-[#6366f1] hover:underline font-bold text-xs cursor-pointer transition-colors"
+              >
+                {showAllModules ? 'Show Less' : 'View all'}
+              </button>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {modulesToRender.map((mod) => {
-              const status = getModuleStatus(progress, mod.id, diagnosticResults)
-              const isLocked = status === 'locked'
-              const isCompleted = status === 'completed'
-              const percent = isCompleted ? 100 : status === 'locked' ? 0 : 35 // Visual progress values representing stage
+          {loadingProgress ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6366f1]"></div>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {modulesToRender.map((mod, index) => {
+                  const status = getModuleStatus(progress, mod.id, diagnosticResults)
+                  const isLocked = status === 'locked'
+                  const isCompleted = status === 'completed'
+                  const percent = isCompleted ? 100 : status === 'locked' ? 0 : 35 // Visual progress values representing stage
 
-              return (
-                <div 
-                  key={mod.id} 
-                  className={`bg-surface border border-outline-variant/40 rounded-3xl p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-300 ${isLocked ? 'opacity-60' : ''}`}
-                >
-                  <div>
-                    {/* Header */}
-                    <div className="flex justify-between items-start mb-4">
-                      <span className="w-8 h-8 rounded-full bg-purple-500/10 text-[#6366f1] font-bold text-xs flex items-center justify-center">
-                        {String(mod.id).padStart(2, '0')}
-                      </span>
-                      {isCompleted ? (
-                        <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-full px-2.5 py-0.5 text-[9px] font-semibold flex items-center gap-0.5 select-none">
-                          Done
-                        </span>
-                      ) : isLocked ? (
-                        <span className="bg-outline-variant/20 text-on-surface-variant border border-outline-variant/30 rounded-full px-2.5 py-0.5 text-[9px] font-semibold flex items-center gap-0.5 select-none">
-                          Locked
-                        </span>
-                      ) : (
-                        <span className="bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 rounded-full px-2.5 py-0.5 text-[9px] font-semibold select-none">
-                          Active
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Image */}
-                    <div className="relative rounded-2xl overflow-hidden mb-4 aspect-[16/10] bg-surface-container-lowest border border-outline-variant/20 flex items-center justify-center">
-                      <img 
-                        src={getModuleImage(mod.id)} 
-                        alt={mod.title} 
-                        className={`w-full h-full object-contain p-4 select-none pointer-events-none ${isLocked ? 'grayscale opacity-75' : ''}`}
-                      />
-                    </div>
-
-                    {/* Meta info */}
-                    <h3 className="font-bold text-sm text-on-surface mb-1 leading-snug line-clamp-1">{mod.title}</h3>
-                    <p className="text-[11px] text-on-surface-variant mb-6 line-clamp-2 leading-relaxed">
-                      {mod.theory.sections[0]?.content || 'Get started learning building 3D environments on the web.'}
-                    </p>
-                  </div>
-
-                  {/* Progress & Action */}
-                  <div className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-1.5">
-                      <div className="w-full bg-surface-container-highest rounded-full h-1">
-                        <div className="bg-[#6366f1] h-1 rounded-full transition-all duration-300" style={{ width: `${percent}%` }}></div>
-                      </div>
-                      <span className="text-[9px] font-bold text-on-surface-variant">{percent}% complete</span>
-                    </div>
-
-                    <button 
-                      disabled={isLocked}
-                      onClick={() => {
-                        if (!isLocked) navigate(`/module/${mod.id}`)
-                      }}
-                      className={`w-full font-bold text-xs py-2.5 rounded-xl transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 ${
-                        isCompleted
-                          ? 'bg-surface-container-highest hover:bg-surface-bright text-on-surface border border-outline-variant'
-                          : isLocked
-                          ? 'bg-surface-container-low text-on-surface-variant border border-outline-variant/20 cursor-not-allowed'
-                          : 'bg-[#6366f1] hover:bg-[#5053e1] text-white shadow-md shadow-[#6366f1]/20'
-                      }`}
+                  return (
+                    <div 
+                      key={mod.id} 
+                      className={`bg-surface border border-outline-variant/40 rounded-3xl p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-300 ${isLocked ? 'opacity-60' : ''}`}
                     >
-                      {isCompleted ? (
-                        <span>Review Workspace</span>
-                      ) : isLocked ? (
-                        <span>Locked</span>
-                      ) : (
-                        <span>Resume Course</span>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                      <div>
+                        {/* Header */}
+                        <div className="flex justify-between items-start mb-4">
+                          <span className="w-8 h-8 rounded-full bg-purple-500/10 text-[#6366f1] font-bold text-xs flex items-center justify-center">
+                            {String(index + 1).padStart(2, '0')}
+                          </span>
+                          {isCompleted ? (
+                            <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-full px-2.5 py-0.5 text-[9px] font-semibold flex items-center gap-0.5 select-none">
+                              Done
+                            </span>
+                          ) : isLocked ? (
+                            <span className="bg-outline-variant/20 text-on-surface-variant border border-outline-variant/30 rounded-full px-2.5 py-0.5 text-[9px] font-semibold flex items-center gap-0.5 select-none">
+                              Locked
+                            </span>
+                          ) : (
+                            <span className="bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 rounded-full px-2.5 py-0.5 text-[9px] font-semibold select-none">
+                              Active
+                            </span>
+                          )}
+                        </div>
 
-          <div className="flex justify-center mt-4">
-            <button 
-              onClick={() => setShowAllModules(!showAllModules)}
-              className="border border-outline-variant hover:border-[#6366f1] text-on-surface hover:text-[#6366f1] font-semibold text-xs py-3 px-6 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer bg-surface"
-            >
-              <span>{showAllModules ? 'Show Less Modules' : 'Explore All Modules'}</span>
-              <span className="text-sm">→</span>
-            </button>
-          </div>
+                        {/* Image */}
+                        <div className="relative rounded-2xl overflow-hidden mb-4 aspect-[16/10] bg-surface-container-lowest border border-outline-variant/20 flex items-center justify-center">
+                          <img 
+                            src={getModuleImage(mod.id)} 
+                            alt={mod.title} 
+                            className={`w-full h-full object-contain p-4 select-none pointer-events-none ${isLocked ? 'grayscale opacity-75' : ''}`}
+                          />
+                        </div>
+
+                        {/* Meta info */}
+                        <h3 className="font-bold text-sm text-on-surface mb-1 leading-snug line-clamp-1">{mod.title}</h3>
+                        <p className="text-[11px] text-on-surface-variant mb-6 line-clamp-2 leading-relaxed">
+                          {mod.theory.sections[0]?.content || 'Get started learning building 3D environments on the web.'}
+                        </p>
+                      </div>
+
+                      {/* Progress & Action */}
+                      <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-1.5">
+                          <div className="w-full bg-surface-container-highest rounded-full h-1">
+                            <div className="bg-[#6366f1] h-1 rounded-full transition-all duration-300" style={{ width: `${percent}%` }}></div>
+                          </div>
+                          <span className="text-[9px] font-bold text-on-surface-variant">{percent}% complete</span>
+                        </div>
+
+                        <button 
+                          disabled={isLocked}
+                          onClick={() => {
+                            if (!isLocked) navigate(`/module/${mod.id}`)
+                          }}
+                          className={`w-full font-bold text-xs py-2.5 rounded-xl transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 ${
+                            isCompleted
+                              ? 'bg-surface-container-highest hover:bg-surface-bright text-on-surface border border-outline-variant'
+                              : isLocked
+                              ? 'bg-surface-container-low text-on-surface-variant border border-outline-variant/20 cursor-not-allowed'
+                              : 'bg-[#6366f1] hover:bg-[#5053e1] text-white shadow-md shadow-[#6366f1]/20'
+                          }`}
+                        >
+                          {isCompleted ? (
+                            <span>Review Workspace</span>
+                          ) : isLocked ? (
+                            <span>Locked</span>
+                          ) : (
+                            <span>Resume Course</span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {visibleModules.length > 4 && (
+                <div className="flex justify-center mt-4">
+                  <button 
+                    onClick={() => setShowAllModules(!showAllModules)}
+                    className="border border-outline-variant hover:border-[#6366f1] text-on-surface hover:text-[#6366f1] font-semibold text-xs py-3 px-6 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer bg-surface"
+                  >
+                    <span>{showAllModules ? 'Show Less Modules' : 'Explore All Modules'}</span>
+                    <span className="text-sm">→</span>
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </section>
 
       </main>

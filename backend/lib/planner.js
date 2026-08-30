@@ -20,10 +20,10 @@ Rules:
 - Return ONLY valid JSON, no markdown fences, no preamble.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
     contents: prompt,
   });
-  
+
   const raw = response.text.trim();
 
   let parsed;

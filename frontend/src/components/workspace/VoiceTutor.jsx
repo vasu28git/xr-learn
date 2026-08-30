@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { api } from '../../lib/api'
 
-const GREETING = "Hi! I'm Loki, your AI tutor. How can I help you today?"
+const GREETING = "Hi! I'm Sylvie, your AI tutor. How can I help you today?"
 
 /** Convert theory sections array to plain readable text */
 function sectionsToText(sections = []) {
@@ -43,17 +43,16 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
   // Notification Bubble state
   const [showNotification, setShowNotification] = useState(true)
 
-  // Drag state for the main panel
-  const [pos, setPos] = useState({ x: null, y: null }) // null = centered (default)
+  // Shared Drag state for BOTH the main panel and the trigger button
+  const [pos, setPos] = useState({ x: null, y: null }) // null = bottom right (default)
+  
   const [dragging, setDragging] = useState(false)
-  const dragOffset = useRef({ x: 0, y: 0 })
-  const panelRef = useRef(null)
-
-  // Drag state for the trigger button
-  const [btnPos, setBtnPos] = useState({ x: null, y: null }) // null = bottom centered (default)
   const [btnDragging, setBtnDragging] = useState(false)
-  const btnDragOffset = useRef({ x: 0, y: 0 })
+  
+  const dragOffset = useRef({ x: 0, y: 0 })
   const btnStartPos = useRef({ x: 0, y: 0 })
+  
+  const panelRef = useRef(null)
   const triggerRef = useRef(null)
 
   const recognitionRef = useRef(null)
@@ -77,6 +76,20 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
       speakText(GREETING)
     }
   }, [isOpen])
+
+  // Clamp panel position if opened near the screen edges
+  useEffect(() => {
+    if (isOpen && panelRef.current && pos.x !== null) {
+      const w = panelRef.current.offsetWidth
+      const h = panelRef.current.offsetHeight
+      let newX = pos.x
+      let newY = pos.y
+      let changed = false
+      if (pos.x > window.innerWidth - w) { newX = Math.max(0, window.innerWidth - w - 10); changed = true; }
+      if (pos.y > window.innerHeight - h) { newY = Math.max(0, window.innerHeight - h - 10); changed = true; }
+      if (changed) setPos({ x: newX, y: newY })
+    }
+  }, [isOpen, pos.x, pos.y])
 
   // Clean up on unmount
   useEffect(() => {
@@ -106,7 +119,7 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
     btnStartPos.current = { x: e.clientX, y: e.clientY }
 
     const rect = triggerRef.current.getBoundingClientRect()
-    btnDragOffset.current = {
+    dragOffset.current = {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top
     }
@@ -130,12 +143,12 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
           y: Math.min(Math.max(newY, 0), window.innerHeight - h)
         })
       } else if (btnDragging && triggerRef.current) {
-        const newX = e.clientX - btnDragOffset.current.x
-        const newY = e.clientY - btnDragOffset.current.y
+        const newX = e.clientX - dragOffset.current.x
+        const newY = e.clientY - dragOffset.current.y
         const w = triggerRef.current.offsetWidth
         const h = triggerRef.current.offsetHeight
-        // Clamp inside viewport with 10px padding
-        setBtnPos({
+        // Clamp inside viewport
+        setPos({
           x: Math.min(Math.max(newX, 10), window.innerWidth - w - 10),
           y: Math.min(Math.max(newY, 10), window.innerHeight - h - 10)
         })
@@ -232,13 +245,22 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
       setError('Speech recognition is not supported in this browser. Please use Chrome or Edge.')
       return
     }
-    if (status !== 'idle') return
+    
+    // If AI is currently speaking, interrupt it and start listening immediately
+    if (status === 'speaking') {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.currentTime = 0
+      }
+    } else if (status !== 'idle') {
+      return
+    }
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     const recognition = new SR()
     recognition.lang = 'en-US'
     recognition.interimResults = true
-    recognition.continuous = false
+    recognition.continuous = true // Manual control: stays on until user stops it
     recognitionRef.current = recognition
     setTranscript('')
     setStatus('listening')
@@ -299,6 +321,7 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
     setStatus('idle')
     setError(null)
     hasGreeted.current = false
+    setPos({ x: null, y: null })
   }
 
   // ── Status config ─────────────────────────────────────────────────────────
@@ -310,15 +333,10 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
   }
   const st = statusMap[status]
 
-  // ── Panel positioning styles ──
-  const panelStyle = pos.x !== null
+  // ── Shared positioning (pos = null means bottom right default) ──
+  const sharedStyle = pos.x !== null
     ? { position: 'fixed', left: pos.x, top: pos.y, transform: 'none', zIndex: 50 }
-    : { position: 'fixed', bottom: '1.5rem', left: '50%', transform: 'translateX(-50%)', zIndex: 50 }
-
-  // ── Floating Button styling (draggable position fallback to bottom right) ──
-  const triggerStyle = btnPos.x !== null
-    ? { position: 'fixed', left: btnPos.x, top: btnPos.y, transform: 'none', zIndex: 50 }
-    : { position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 50 }
+    : { position: 'fixed', bottom: '2rem', right: '2rem', transform: 'none', zIndex: 50 }
 
   return (
     <>
@@ -326,7 +344,7 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
 
       {/* ── Draggable Floating trigger button + Notification Bubble ── */}
       {!isOpen && (
-        <div style={triggerStyle} ref={triggerRef} className="relative select-none">
+        <div style={sharedStyle} ref={triggerRef} className="relative select-none">
           {/* Notification bubble (Hey I'm Loki) */}
           {showNotification && (
             <div className="absolute bottom-full right-0 mb-4 w-[260px] bg-surface border border-[#6366f1]/30 p-3 rounded-2xl shadow-xl flex items-start gap-2 z-[60] origin-bottom-right transition-all">
@@ -338,7 +356,7 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
               </div>
               <div className="flex-1">
                 <p className="text-[11px] font-bold text-on-surface leading-snug">
-                  Hey, I'm <span className="text-[#6366f1]">Loki</span>! Your interactive Voice Assistant.
+                  Hey, I'm <span className="text-[#6366f1]">Sylvie</span>! Your interactive Voice Assistant.
                 </p>
                 <p className="text-[9px] text-on-surface-variant leading-none mt-1">
                   Drag me anywhere, or click to talk!
@@ -363,10 +381,10 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
           <button
             id="voice-tutor-open"
             onMouseDown={onBtnDragStart}
-            title="Loki Voice Assistant (Drag to Move)"
-            className="w-16 h-16 bg-[#6366f1] hover:bg-[#5053e1] text-white rounded-full shadow-[0_8px_30px_rgba(99,102,241,0.4)] hover:shadow-[0_12px_40px_rgba(99,102,241,0.6)] transition-all duration-300 cursor-grab active:cursor-grabbing flex items-center justify-center border-[3px] border-surface"
+            title="Sylvie Voice Assistant (Drag to Move)"
+            className="w-16 h-16 bg-[#6366f1] hover:bg-[#5053e1] text-white rounded-full shadow-[0_8px_30px_rgba(99,102,241,0.4)] hover:shadow-[0_12px_40px_rgba(99,102,241,0.6)] transition-all duration-300 cursor-pointer active:cursor-grabbing flex items-center justify-center border-[3px] border-surface"
           >
-            {/* Crown Icon representing Loki */}
+            {/* Crown Icon representing Sylvie */}
             <svg className="w-8 h-8 text-emerald-300" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M3 20h18" strokeLinecap="round" strokeLinejoin="round" />
@@ -379,8 +397,8 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
       {isOpen && (
         <div
           ref={panelRef}
-          style={panelStyle}
-          className="w-[400px] max-w-[calc(100vw-1rem)] bg-surface border border-outline-variant/60 rounded-3xl shadow-2xl shadow-black/30 flex flex-col overflow-hidden select-none"
+          style={sharedStyle}
+          className="w-[400px] h-[550px] min-w-[320px] min-h-[350px] max-w-[calc(100vw-1rem)] max-h-[calc(100vh-1rem)] bg-surface border border-outline-variant/60 rounded-3xl shadow-2xl shadow-black/30 flex flex-col overflow-hidden select-none resize"
         >
           {/* ── Drag handle / Header ── */}
           <div
@@ -389,14 +407,14 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
             className="flex items-center justify-between px-5 py-3.5 bg-[#6366f1]/10 border-b border-[#6366f1]/20 cursor-grab active:cursor-grabbing"
           >
             <div className="flex items-center gap-2.5">
-              {/* Loki Green/Gold Themed Icon */}
+              {/* Sylvie Green/Gold Themed Icon */}
               <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 text-emerald-400">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7z" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
               <div>
-                <p className="font-bold text-xs text-on-surface leading-none">Loki AI Assistant</p>
+                <p className="font-bold text-xs text-on-surface leading-none">Sylvie AI Assistant</p>
                 <div className="flex items-center gap-1.5 mt-1">
                   <span className={`w-1.5 h-1.5 rounded-full ${st.dotCls}`} />
                   <span className={`text-[10px] font-semibold ${st.textCls}`}>{st.label}</span>
@@ -450,20 +468,25 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
 
           {/* Live transcript */}
           {transcript && (
-            <div className="mx-4 mb-1 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
-              🎙️ {transcript}
+            <div className="mx-4 mb-2 px-4 py-3 bg-emerald-50 dark:bg-emerald-500/10 border-2 border-emerald-500/30 rounded-2xl text-sm text-emerald-800 dark:text-emerald-300 font-bold shadow-sm flex items-center gap-3">
+              <span className="relative flex h-3 w-3 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              </span>
+              <span className="flex-1 italic break-words">"{transcript}"</span>
             </div>
           )}
 
           {/* Error banner */}
           {error && (
-            <div className="mx-4 mb-1 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-xl text-[11px] text-red-500 font-medium">
+            <div className="mx-4 mb-2 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-500 font-bold">
               {error}
             </div>
           )}
 
           {/* ── Input row ── */}
-          <div className="px-4 py-3 border-t border-outline-variant/40 flex items-center gap-2" onMouseDown={e => e.stopPropagation()}>
+          {/* Added pr-6 to ensure native CSS resize handle doesn't overlap the mic button */}
+          <div className="pl-4 pr-6 py-3 border-t border-outline-variant/40 flex items-center gap-2" onMouseDown={e => e.stopPropagation()}>
             {/* Text input */}
             <form onSubmit={handleTextSubmit} className="flex-1 flex items-center gap-2 bg-surface-container-high rounded-2xl px-3 py-2 border border-outline-variant/40">
               <input
@@ -473,7 +496,7 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleTextSubmit()}
                 placeholder="Type your question…"
                 disabled={status === 'processing'}
-                className="flex-1 bg-transparent text-xs text-on-surface placeholder-on-surface-variant/60 outline-none min-w-0"
+                className="flex-1 bg-transparent text-sm text-on-surface placeholder-on-surface-variant/60 outline-none min-w-0"
               />
               <button
                 type="submit"
@@ -481,7 +504,7 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
                 className="text-[#6366f1] hover:text-[#5053e1] disabled:opacity-30 transition-colors cursor-pointer shrink-0"
                 title="Send"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7Z" />
                 </svg>
               </button>
@@ -492,9 +515,9 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
               <button
                 onClick={startListening}
                 title="Speak a question"
-                className="w-10 h-10 rounded-2xl bg-[#6366f1] hover:bg-[#5053e1] text-white flex items-center justify-center shadow-md shadow-[#6366f1]/25 transition-all cursor-pointer shrink-0"
+                className="w-12 h-12 rounded-2xl bg-[#6366f1] hover:bg-[#5053e1] text-white flex items-center justify-center shadow-md shadow-[#6366f1]/25 transition-all cursor-pointer shrink-0"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3Z" />
                   <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8" />
                 </svg>
@@ -505,9 +528,9 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
               <button
                 onClick={stopListening}
                 title="Stop recording"
-                className="w-10 h-10 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-md transition-all cursor-pointer animate-pulse shrink-0"
+                className="w-12 h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-md transition-all cursor-pointer animate-pulse shrink-0"
               >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                   <rect x="6" y="6" width="12" height="12" rx="2" />
                 </svg>
               </button>
@@ -515,19 +538,19 @@ export default function VoiceTutor({ moduleConfig, currentCode }) {
 
             {status === 'speaking' && (
               <button
-                onClick={stopSpeaking}
-                title="Stop speaking"
-                className="w-10 h-10 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center shadow-md transition-all cursor-pointer shrink-0"
+                onClick={startListening}
+                title="Interrupt and reply"
+                className="w-12 h-12 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center shadow-md transition-all cursor-pointer shrink-0"
               >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                   <rect x="6" y="6" width="12" height="12" rx="2" />
                 </svg>
               </button>
             )}
 
             {status === 'processing' && (
-              <div className="w-10 h-10 rounded-2xl bg-surface-container-high border border-outline-variant/40 flex items-center justify-center shrink-0">
-                <svg className="w-4 h-4 animate-spin text-[#6366f1]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <div className="w-12 h-12 rounded-2xl bg-surface-container-high border border-outline-variant/40 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 animate-spin text-[#6366f1]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M21 12a9 9 0 11-6.219-8.56" />
                 </svg>
               </div>

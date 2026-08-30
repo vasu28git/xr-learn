@@ -1,5 +1,6 @@
 const { retrieveModuleContent, matchModulesForTopics } = require("../lib/retrieve");
 const { generateLearningModule } = require("../lib/planner");
+const { gradeAnswers } = require("../lib/grader");
 
 const generateTheory = async (moduleId, moduleTitle, topic) => {
   if (!process.env.GEMINI_API_KEY) {
@@ -28,7 +29,20 @@ const matchTopics = async (topics) => {
   return { matches };
 };
 
+const gradeQuiz = async (questions, answers) => {
+  if (!process.env.GEMINI_API_KEY) {
+    console.warn("GEMINI_API_KEY is not configured. Defaulting all quiz answers to incorrect.");
+    const correctness = {};
+    (questions || []).forEach((q) => { correctness[q.id] = false; });
+    return { correctness };
+  }
+
+  const correctness = await gradeAnswers(questions, answers);
+  return { correctness };
+};
+
 module.exports = {
   generateTheory,
-  matchTopics
+  matchTopics,
+  gradeQuiz,
 };

@@ -18,6 +18,14 @@ namespace UnityEngine
         public Transform transform { get; } = new Transform();
     }
 
+    public class GameObject
+    {
+        public string name { get; set; }
+        public Transform transform { get; } = new Transform();
+        public GameObject(string name) { this.name = name; }
+        public GameObject() { }
+    }
+
     public struct Vector3
     {
         public double x;

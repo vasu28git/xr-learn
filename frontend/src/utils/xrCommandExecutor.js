@@ -155,6 +155,11 @@ export function executeXrCommands(commands, currentSceneState, moduleId) {
     else if (typeLower === 'setdirection' || typeLower === 'set_direction') {
       const dirVal = pos ? getPosArray(pos) : [Number(x) || 0, Number(y) || 0, Number(z) || 0];
       nextState.beamDirection = dirVal[2] > 0 ? 'forward' : 'down';
+      nextState.dynamicObjects.teleporter = {
+        name: 'teleporter',
+        type: 'teleporter',
+        position: dirVal
+      };
     }
     else if (typeLower === 'setparent' || typeLower === 'set_parent') {
       const childName = name;
