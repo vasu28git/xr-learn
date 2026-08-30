@@ -1,3 +1,4 @@
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const mammoth = require("mammoth");
 const { embedText } = require("../lib/embeddings");
 const { ensureCollection, upsertChunk } = require("../lib/vectorClient");
@@ -15,19 +16,39 @@ async function extractRawText(docxPath) {
 }
 
 function splitIntoModules(fullText) {
-  const markers = [...fullText.matchAll(MARKER_REGEX)];
+  let markers = [...fullText.matchAll(MARKER_REGEX)];
+  let isTagFormat = true;
+
+  if (markers.length === 0) {
+    const HEADER_REGEX = /^Module\s+(\d+)\s+—\s+([^\r\n]+)/gm;
+    markers = [...fullText.matchAll(HEADER_REGEX)];
+    isTagFormat = false;
+  }
 
   if (markers.length === 0) {
     throw new Error(
-      "No MODULE_ID/TOPIC markers found in document. Expected lines like " +
-      "'<!-- MODULE_ID: 1 | TOPIC: xr-fundamentals -->' directly above each " +
-      "module heading. Check the doc was tagged correctly before ingesting."
+      "No MODULE_ID/TOPIC markers or standard 'Module X — Title' headings found in document. " +
+      "Expected comment tags like '<!-- MODULE_ID: 1 | TOPIC: xr-fundamentals -->' or headings like " +
+      "'Module 1 — What Is XR?' directly above each module section."
     );
   }
 
   const modules = markers.map((match, i) => {
     const moduleId = Number(match[1]);
-    const topic = match[2];
+    let topic;
+    
+    if (isTagFormat) {
+      topic = match[2];
+    } else {
+      // Auto-generate topic slug from the title (e.g. "What Is XR?" -> "what-is-xr")
+      topic = match[2]
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .trim();
+    }
+
     const contentStart = match.index + match[0].length;
     const contentEnd = i + 1 < markers.length ? markers[i + 1].index : fullText.length;
     const text = fullText.slice(contentStart, contentEnd).trim();
