@@ -5,12 +5,12 @@ const getTutorResponse = async ({
   targetState, lastError, history, message,
   isHintRequest, hintsAlreadyGiven
 }) => {
-  const AI_API_KEY = process.env.AI_API_KEY;
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   const provider = process.env.AI_PROVIDER || 'gemini';
 
   // Fallback / Stub response if key is missing or not configured
-  if (!AI_API_KEY) {
-    console.warn('AI_API_KEY is not configured. Serving mock response.');
+  if (!GEMINI_API_KEY) {
+    console.warn('GEMINI_API_KEY is not configured. Serving mock response.');
     return {
       message: `🤖 [Mock Tutor Mode] It looks like you're learning Module ${moduleId} ("${task}"). Since the tutor API key is not set, I'll give you a standard tip: Check that you are modifying the correct file or component, and pay close attention to your three-dimensional scene state: ${JSON.stringify(sceneState || {})}. Keep experimenting!`
     };
@@ -53,7 +53,7 @@ Rules:
 
   if (provider === 'gemini') {
     try {
-      const ai = new GoogleGenAI({ apiKey: AI_API_KEY });
+      const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-2.0-flash',
         contents: messages.map((m) => ({
@@ -77,7 +77,7 @@ Rules:
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': AI_API_KEY,
+        'x-api-key': GEMINI_API_KEY,
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({

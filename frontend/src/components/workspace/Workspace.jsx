@@ -8,6 +8,7 @@ import Scene from './Scene'
 import CodeEditor from './CodeEditor'
 import AIPanel from './AIPanel'
 import TheorySection from '../theory/TheorySection'
+import VoiceTutor from './VoiceTutor'
 
 export default function Workspace({ moduleId, moduleConfig, user, onComplete, onBack, theorySections, theoryIsGenerated }) {
   const navigate = useNavigate()
@@ -499,6 +500,9 @@ export default function Workspace({ moduleId, moduleConfig, user, onComplete, on
 
         </section>
       </main>
+
+      {/* AI Voice Tutor — Learning module only (floats above workspace) */}
+      <VoiceTutor moduleConfig={moduleConfig} currentCode={currentCode} />
 
       {/* Completion Modal Overlay */}
       {showCompletionOverlay && (

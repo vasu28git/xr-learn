@@ -14,6 +14,7 @@ const diagnosticRouter = require('./routes/diagnostic.routes');
 const executeRouter = require('./routes/execute.routes');
 const tutorRouter = require('./routes/tutor.routes');
 const ragRouter = require('./routes/rag.routes');
+const voiceTutorRouter = require('./routes/voiceTutor.routes');
 
 app.use('/api/auth', authRouter);
 app.use('/api/progress', progressRouter);
@@ -21,6 +22,7 @@ app.use('/api/diagnostic', diagnosticRouter);
 app.use('/api/execute', executeRouter);
 app.use('/api/ai-tutor', tutorRouter);
 app.use('/api', ragRouter); // mounts /generate-theory and /match-topics under /api/
+app.use('/api/voice-tutor', voiceTutorRouter);
 
 // Fallback 404 handler
 app.use((req, res) => {

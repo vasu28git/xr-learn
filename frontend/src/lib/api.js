@@ -104,5 +104,28 @@ export const api = {
         body: JSON.stringify(payload),
       });
     }
+  },
+  voiceTutor: {
+    async chat(payload) {
+      return fetchAPI('/voice-tutor/chat', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    async tts(text) {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/voice-tutor/tts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify({ text }),
+      });
+      // 204 = ElevenLabs not configured, gracefully skip audio
+      if (response.status === 204) return null;
+      if (!response.ok) throw new Error('TTS request failed');
+      return response.blob();
+    }
   }
 };
