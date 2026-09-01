@@ -38,7 +38,7 @@ Return ONLY valid JSON with no markdown fences, no preamble, and no explanation:
 {"results": [{"id": "<question id string>", "correct": <true or false>}, ...]}`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3.6-flash",
     contents: prompt,
   });
 

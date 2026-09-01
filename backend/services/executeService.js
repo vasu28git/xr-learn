@@ -1,5 +1,6 @@
 const executeCSharp = async (source) => {
-  const response = await fetch('http://localhost:5058/api/execute', {
+  const executeUrl = process.env.EXECUTE_SERVICE_URL || 'http://localhost:5058/api/execute';
+  const response = await fetch(executeUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -4,7 +4,22 @@ const cors = require('cors');
 const app = express();
 
 // Middleware
-app.use(cors());
+// CORS Configuration
+const allowedOrigins = [
+  process.env.FRONTEND_URL ? process.env.FRONTEND_URL.trim().replace(/\/$/, '') : null,
+  'http://localhost:5173', // Local Vite frontend
+].filter(Boolean);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
 app.use(express.json());
 
 // Routes
